@@ -13,15 +13,15 @@ int64_t token;
 char* src;
 
 int64_t * code,         // code segment
-        * code_dump,     // for dump
+        * code_dump,    // for dump
         * stack;        // stack
-char* data;               // data segment
+char* data;             // data segment
 
-int64_t    * pc,
-        * sp,
-        * bp;
+int64_t * pc,           // pc register
+        * sp,           // esp register
+        * bp;           // ebp register
 
-int64_t ax,     // common register
+int64_t ax,             // common register
         cycle;
 
 // instruction set: copy from c4, change ENT/ADJ/LEV to NSF/CSF/RET.
@@ -74,33 +74,33 @@ int runVM() {
     while (1) {
         op = *pc++; // read instruction
         // load & save
-        if (op == IMM)          ax = *pc++;                // load immediate
-        else if (op == LC)      ax = *(char*)ax;        // load char
-        else if (op == LI)      ax = *(int64_t*)ax;         // load int
-        else if (op == SC)      *(char*)*sp++ = ax;        // save char to stack
-        else if (op == SI)      *(int64_t*)*sp++ = ax;      // save int to stack
-        else if (op == PUSH)    *--sp = ax;                // push ax to stack
+        if (op == IMM)          ax = *pc++;                         // load immediate
+        else if (op == LC)      ax = *(char*)ax;                    // load char
+        else if (op == LI)      ax = *(int64_t*)ax;                 // load int
+        else if (op == SC)      *(char*)*sp++ = ax;                 // save char to stack
+        else if (op == SI)      *(int64_t*)*sp++ = ax;              // save int to stack
+        else if (op == PUSH)    *--sp = ax;                         // push ax to stack
         // jump
-        else if (op == JMP)     pc = (int64_t*)*pc;    // jump
-        else if (op == JZ)      pc = ax ? pc + 1 : (int64_t*)*pc; // jump if ax == 0
-        else if (op == JNZ)     pc = ax ? (int64_t*)*pc : pc + 1; // jump if ax != 0
+        else if (op == JMP)     pc = (int64_t*)*pc;                 // jump
+        else if (op == JZ)      pc = ax ? pc + 1 : (int64_t*)*pc;   // jump if ax == 0
+        else if (op == JNZ)     pc = ax ? (int64_t*)*pc : pc + 1;   // jump if ax != 0
         // arithmetic
-        else if (op == OR)      ax = *sp++ | ax;
-        else if (op == XOR)     ax = *sp++ ^ ax;
-        else if (op == AND)     ax = *sp++ & ax;
+        else if (op == OR)      ax = *sp++ |  ax;
+        else if (op == XOR)     ax = *sp++ ^  ax;
+        else if (op == AND)     ax = *sp++ &  ax;
         else if (op == EQ)      ax = *sp++ == ax;
         else if (op == NE)      ax = *sp++ != ax;
-        else if (op == LT)      ax = *sp++ < ax;
+        else if (op == LT)      ax = *sp++ <  ax;
         else if (op == LE)      ax = *sp++ <= ax;
         else if (op == GT)      ax = *sp++ >  ax;
         else if (op == GE)      ax = *sp++ >= ax;
         else if (op == SHL)     ax = *sp++ << ax;
         else if (op == SHR)     ax = *sp++ >> ax;
-        else if (op == ADD)     ax = *sp++ + ax;
-        else if (op == SUB)     ax = *sp++ - ax;
-        else if (op == MUL)     ax = *sp++ * ax;
-        else if (op == DIV)     ax = *sp++ / ax;
-        else if (op == MOD)     ax = *sp++ % ax;
+        else if (op == ADD)     ax = *sp++ +  ax;
+        else if (op == SUB)     ax = *sp++ -  ax;
+        else if (op == MUL)     ax = *sp++ *  ax;
+        else if (op == DIV)     ax = *sp++ /  ax;
+        else if (op == MOD)     ax = *sp++ %  ax;
         // some complicate instructions for function call
         // call function: push pc + 1 to stack & pc jump to func addr(pc point to)
         else if (op == CALL)    {*--sp = (int64_t)(pc+1); pc = (int64_t*)*pc;}
