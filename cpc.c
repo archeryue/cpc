@@ -22,8 +22,8 @@ uint64_t* pc,
 uint64_t ax, 	// common register
 		 cycle;
 
-// instruction set: copy from c4
-enum {LEA, IMM, JMP, CALL, JZ, JNZ, ENT, ADJ, LEV, LI, LC, SI, SC, PUSH,
+// instruction set: copy from c4, change ENT/ADJ/LEV to NSF/CSF/RET.
+enum {LEA, IMM, JMP, CALL, JZ, JNZ, NSF, CSF, RET, LI, LC, SI, SC, PUSH,
 	OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV,
 	MOD, OPEN, READ, CLOS, PRTF, MALC, MSET, MCMP, EXIT};
 
@@ -65,16 +65,52 @@ int initVM() {
 int runVM() {
 	int op;
 	while (1) {
+		// load & save
 		if (op == IMM)       	ax = *pc++;				// load immediate
 		else if (op == LC)	 	ax = *(char*)ax;		// load char
 		else if (op == LI)   	ax = *(int*)ax;         // load int
 		else if (op == SC)   	*(char*)*sp++ = ax;    	// save char to stack
 		else if (op == SI)		*(int*)*sp++ = ax;      // save int to stack
 		else if (op == PUSH)	*--sp = ax;				// push ax to stack
+		// jump
 		else if (op == JMP)		pc = (uint64_t*)*pc;	// jump
 		else if (op == JZ)		pc = ax ? pc + 1 : (uint64_t*)*pc; // jump if ax == 0
 		else if (op == JNZ)		pc = ax ? (uint64_t*)*pc : pc + 1; // jump if ax != 0
-		//todo
+		// arithmetic
+		else if (op == OR)  	ax = *sp++ | ax;
+		else if (op == XOR) 	ax = *sp++ ^ ax;
+		else if (op == AND) 	ax = *sp++ & ax;
+		else if (op == EQ)  	ax = *sp++ == ax;
+		else if (op == NE)  	ax = *sp++ != ax;
+		else if (op == LT)  	ax = *sp++ < ax;
+		else if (op == LE)  	ax = *sp++ <= ax;
+		else if (op == GT)  	ax = *sp++ >  ax;
+		else if (op == GE)  	ax = *sp++ >= ax;
+		else if (op == SHL) 	ax = *sp++ << ax;
+		else if (op == SHR) 	ax = *sp++ >> ax;
+		else if (op == ADD) 	ax = *sp++ + ax;
+		else if (op == SUB) 	ax = *sp++ - ax;
+		else if (op == MUL) 	ax = *sp++ * ax;
+		else if (op == DIV) 	ax = *sp++ / ax;
+		else if (op == MOD) 	ax = *sp++ % ax;
+		// some complicate instructions for function call
+		// call function: push pc + 1 to stack & pc jump to func addr(pc point to)
+		else if (op == CALL) 	{*--sp = (uint64_t)(pc+1); pc = (uint64_t*)*pc;}
+		// new stack frame: save bp, bp -> caller stack, stack add frame
+		else if (op == NSF)  	{*--sp = (uint64_t)bp; bp = sp; sp = sp - *pc++;}
+		// clean stack frame: stack clean frame, same as x86 : add esp, <size>
+		else if (op == CSF)		sp = sp + *pc++;
+		// return caller: retore stack, retore old bp, pc point to caller code addr(store by CALL) 
+		else if (op == RET)		{sp = bp; bp = (uint64_t*)*sp++; pc = (uint64_t*)*sp++;}		
+		// load arguments address: load effective address
+		else if (op == LEA)		ax = (uint64_t)bp + *pc++;
+		// end for call function.
+
+
+
+
+
+
 	}
 	return ok;
 }
