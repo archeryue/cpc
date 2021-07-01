@@ -10,12 +10,14 @@
 
 int64_t MAX_SIZE = 128 * 1024 * 4; // 1MB = 128k * 64bit
 int64_t token;
-char* src;
+
+char * src,
+     * src_dump;
 
 int64_t * code,         // code segment
         * code_dump,    // for dump
         * stack;        // stack
-char* data;             // data segment
+char * data;            // data segment
 
 int64_t * pc,           // pc register
         * sp,           // esp register
@@ -132,7 +134,7 @@ int runVM() {
     return ok;
 }
 
-int loadSourceCode(char* file) {
+int loadCode(char* file) {
     int64_t fd;
     // use open/read/close for bootstrap.
     if ((fd = open(file, 0)) < 0) {
@@ -140,7 +142,7 @@ int loadSourceCode(char* file) {
         return -1;
     }
     if (!(src = malloc(MAX_SIZE))) {
-        printf("could not malloc(%lld) for source area\n", MAX_SIZE);
+        printf("could not malloc(%lld) for source code\n", MAX_SIZE);
         return -1;
     }
     int64_t cnt;
@@ -155,23 +157,13 @@ int loadSourceCode(char* file) {
 
 int main(int argc, char** argv) {
     // load source code
-    if (loadSourceCode(*(argv+1)) != ok) return -1;
+    if (loadCode(*(argv+1)) != ok) return -1;
     // init memory & register
     if (initVM() != ok) return -1;
     // parse: tokenize & parse get AST
     parse();
     // generate instructions from AST for VM
     generate();
-    /*int64_t i = 0;*/
-    /*code[i++] = IMM;*/
-    /*code[i++] = 10;*/
-    /*code[i++] = PUSH;*/
-    /*code[i++] = IMM;*/
-    /*code[i++] = 20;*/
-    /*code[i++] = ADD;*/
-    /*code[i++] = PUSH;*/
-    /*code[i++] = EXIT;*/
-    /*pc = code;*/
     // run
     return runVM();
 }
