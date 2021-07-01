@@ -74,10 +74,10 @@ int runVM() {
 	while (1) {
 		op = *pc++; // read instruction
 		// load & save
-		if (op == IMM)       	ax = *pc++;				// load immediate
-		else if (op == LC)	 	ax = *(char*)ax;		// load char
-		else if (op == LI)   	ax = *(int64_t*)ax;         // load int
-		else if (op == SC)   	*(char*)*sp++ = ax;    	// save char to stack
+		if (op == IMM)			ax = *pc++;				// load immediate
+		else if (op == LC)		ax = *(char*)ax;		// load char
+		else if (op == LI)		ax = *(int64_t*)ax;         // load int
+		else if (op == SC)		*(char*)*sp++ = ax;    	// save char to stack
 		else if (op == SI)		*(int64_t*)*sp++ = ax;      // save int to stack
 		else if (op == PUSH)	*--sp = ax;				// push ax to stack
 		// jump
@@ -85,7 +85,7 @@ int runVM() {
 		else if (op == JZ)		pc = ax ? pc + 1 : (int64_t*)*pc; // jump if ax == 0
 		else if (op == JNZ)		pc = ax ? (int64_t*)*pc : pc + 1; // jump if ax != 0
 		// arithmetic
-		else if (op == OR)  	ax = *sp++ | ax;
+		else if (op == OR)		ax = *sp++ | ax;
 		else if (op == XOR) 	ax = *sp++ ^ ax;
 		else if (op == AND) 	ax = *sp++ & ax;
 		else if (op == EQ)  	ax = *sp++ == ax;
@@ -119,7 +119,7 @@ int runVM() {
 		else if (op == CLOS)	{ax = close(*sp);}
 		else if (op == READ)	{ax = read(sp[2], (char*)sp[1], *sp);}
 		else if (op == PRTF)	{tmp = sp + pc[1]; ax = printf((char*)tmp[-1], tmp[-2], tmp[-3],
-																	tmp[-4], tmp[-5], tmp[-6]);}
+								tmp[-4], tmp[-5], tmp[-6]);}
 		else if (op == MALC)	{ax = (int64_t)malloc(*sp);}
 		else if (op == FREE)	{free((int64_t*)*sp);}
 		else if (op == MSET)	{ax = (int64_t)memset((char*)sp[2], sp[1], *sp);}
