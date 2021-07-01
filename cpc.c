@@ -1,3 +1,5 @@
+#include <fcntl.h>
+#include <unistd.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,11 +29,15 @@ enum {LEA, IMM, JMP, CALL, JZ, JNZ, NSF, CSF, RET, LI, LC, SI, SC, PUSH,
 	OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV,
 	MOD, OPEN, READ, CLOS, PRTF, MALC, MSET, MCMP, EXIT};
 
-void tokenizer() {
+void tokenize() {
 	// todo
 }
 
-void parser() {
+void parse() {
+	// todo
+}
+
+void generate() {
 	// todo
 }
 
@@ -64,6 +70,7 @@ int initVM() {
 
 int runVM() {
 	int op;
+	uint32_t* tmp;
 	while (1) {
 		// load & save
 		if (op == IMM)       	ax = *pc++;				// load immediate
@@ -105,19 +112,25 @@ int runVM() {
 		// load arguments address: load effective address
 		else if (op == LEA)		ax = (uint64_t)bp + *pc++;
 		// end for call function.
-
-
-
-
-
-
+		// native call
+		else if (op == EXIT)	{printf("exit(%lld)", *sp); return *sp;}
+		else if (op == OPEN)	{ax = open((char*)sp[1], sp[0]);}
+		else if (op == CLOS)	{ax = close(*sp);}
+		else if (op == READ)	{ax = read(sp[2], (char*)sp[1], *sp);}
+		else if (op == PRTF)	{tmp = sp + pc[1]; ax = printf((char*)tmp[-1], tmp[-2], tmp[-3],
+								tmp[-4], tmp[-5], tmp[-6]);}
+		else if (op == MALC)	{ax = (int)malloc(*sp);}
+		else if (op == MSET)	{ax = (int)memset((char*)sp[2], sp[1], *sp);}
+		else if (op == MCMP)	{ax = memcmp((char*)sp[2], (char*)sp[1], *sp);}
+		else return -1;
 	}
 	return ok;
 }
 
-int loadCode(char* file) {
-	FILE* fp;
-    if ((fp = fopen(file, "r")) == NULL) {
+int loadSourceCode(char* file) {
+	uint64_t fd;
+	// use open/read/close for bootstrap.
+    if ((fd = open(file, 0)) < 0) {
         printf("could not open source code(%s)\n", file);
         return -1;
     }
@@ -125,22 +138,25 @@ int loadCode(char* file) {
         printf("could not malloc(%lld) for source area\n", MAX_SIZE);
         return -1;
     }
-	char ch;
-	int cnt = 0;
-	while((ch = getc(fp)) != EOF) src[cnt++] = ch;
+	uint64_t cnt;
+	if ((cnt = read(fd, src, MAX_SIZE - 1)) <= 0) {
+		printf("could not read source code(%lld)\n", cnt);
+		return -1;
+	}
 	src[cnt] = '\0';
-	fclose(fp);
+	close(fd);
 	return ok;
 }
 
 int main(int argc, char** argv) {
 	// load source code
-	if (loadCode(*(argv+1)) != ok) return -1;
+	if (loadSourceCode(*(argv+1)) != ok) return -1;
 	// init memory & register
 	if (initVM() != ok) return -1;
-	// parser: tokenize & parse
-	parser();
-	// generator
+	// parse: tokenize & parse get AST
+	parse();
+	// generate instructions from AST for VM
+	generate();
 	// run
     return runVM();
 }
