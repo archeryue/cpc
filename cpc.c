@@ -27,7 +27,7 @@ uint64_t ax, 	// common register
 // instruction set: copy from c4, change ENT/ADJ/LEV to NSF/CSF/RET.
 enum {LEA, IMM, JMP, CALL, JZ, JNZ, NSF, CSF, RET, LI, LC, SI, SC, PUSH,
 	OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV,
-	MOD, OPEN, READ, CLOS, PRTF, MALC, MSET, MCMP, EXIT};
+	MOD, OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT};
 
 void tokenize() {
 	// todo
@@ -68,10 +68,17 @@ int initVM() {
 	return ok;
 }
 
+void cleanVM() {
+	free(code);
+	free(data);
+	free(stack);
+}
+
 int runVM() {
-	int op;
-	uint32_t* tmp;
+	uint64_t op;
+	uint64_t* tmp;
 	while (1) {
+		op = *pc++; // read instruction
 		// load & save
 		if (op == IMM)       	ax = *pc++;				// load immediate
 		else if (op == LC)	 	ax = *(char*)ax;		// load char
@@ -113,16 +120,20 @@ int runVM() {
 		else if (op == LEA)		ax = (uint64_t)bp + *pc++;
 		// end for call function.
 		// native call
-		else if (op == EXIT)	{printf("exit(%lld)", *sp); return *sp;}
+		else if (op == EXIT)	{printf("exit(%lld)\n", *sp); return *sp;}
 		else if (op == OPEN)	{ax = open((char*)sp[1], sp[0]);}
 		else if (op == CLOS)	{ax = close(*sp);}
 		else if (op == READ)	{ax = read(sp[2], (char*)sp[1], *sp);}
 		else if (op == PRTF)	{tmp = sp + pc[1]; ax = printf((char*)tmp[-1], tmp[-2], tmp[-3],
-								tmp[-4], tmp[-5], tmp[-6]);}
+																	tmp[-4], tmp[-5], tmp[-6]);}
 		else if (op == MALC)	{ax = (int)malloc(*sp);}
+		else if (op == FREE)	{free((uint64_t*)*sp);}
 		else if (op == MSET)	{ax = (int)memset((char*)sp[2], sp[1], *sp);}
 		else if (op == MCMP)	{ax = memcmp((char*)sp[2], (char*)sp[1], *sp);}
-		else return -1;
+		else {
+			printf("unkown instruction: %lld\n", op);
+			return -1;
+		}
 	}
 	return ok;
 }
@@ -150,13 +161,25 @@ int loadSourceCode(char* file) {
 
 int main(int argc, char** argv) {
 	// load source code
-	if (loadSourceCode(*(argv+1)) != ok) return -1;
+	//if (loadSourceCode(*(argv+1)) != ok) return -1;
 	// init memory & register
 	if (initVM() != ok) return -1;
 	// parse: tokenize & parse get AST
 	parse();
 	// generate instructions from AST for VM
 	generate();
+	uint64_t i = 0;
+    code[i++] = IMM;
+    code[i++] = 10;
+    code[i++] = PUSH;
+    code[i++] = IMM;
+    code[i++] = 20;
+    code[i++] = ADD;
+    code[i++] = PUSH;
+    code[i++] = EXIT;
+    pc = code;
 	// run
-    return runVM();
+    int ret = runVM();
+	cleanVM();
+	return 0;
 }
