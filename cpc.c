@@ -12,7 +12,7 @@ int64_t MAX_SIZE = 128 * 1024 * 4; // 1MB = 128k * 64bit
 
 int64_t * code,         // code segment
         * code_dump,    // for dump
-        * stack;        // stack
+        * stack;        // stack segment
 char * data;            // data segment
 
 int64_t * pc,           // pc register
@@ -22,19 +22,22 @@ int64_t * pc,           // pc register
 int64_t ax,             // common register
         cycle;
 
-// instruction set: copy from c4, change ENT/ADJ/LEV to NSF/CSF/RET, add FREE.
-enum {LEA, IMM, JMP, CALL, JZ, JNZ, NSF, CSF, RET, LI, LC, SI, SC, PUSH,
+// instruction set: copy from c4, change ENT/ADJ/LEV to NSF/CSF/RET, add CALL.
+enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSF, CSF, RET, LI, LC, SI, SC, PUSH,
     OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV,
     MOD, OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT};
 
-// tokens and classes (operators in precedence order): also copy from c4.
+// keywords & operators in precedence order, support int64. Do not support for.
 enum {Num = 128, Fun, Sys, Glo, Loc, Id,
-    Char, Else, Enum, If, Int, Return, Sizeof, While,
+    Char, Int, Int64, Enum, If, Else, Return, Sizeof, While,
     Assign, Cond, Lor, Lan, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge,
     Shl, Shr, Add, Sub, Mul, Div, Mod, Inc, Dec, Brak};
 
 // fields of symbol_table: copy from c4, delete HXXX
 enum {Token, Hash, Name, Class, Type, Value, PtrSize};
+
+// types of variables & functions
+enum {CHAR, INT, INT64, PTR};
 
 // src code & dump
 char * src,
@@ -42,7 +45,8 @@ char * src,
 
 // symbol table & reuse pointer
 int64_t * symbol_table,
-        * symbol_ptr;
+        * symbol_ptr,
+        * main_ptr;
 
 int64_t token, token_val;
 int64_t line;
@@ -148,8 +152,25 @@ void generate() {
     // todo
 }
 
-void expEval() {
+void exprEval() {
     // todo
+}
+
+void prepKeyword() {
+    char* keyword = "char int int64_t enum if else return sizeof while "
+        "open read close printf malloc free memset memcmp exit void main";
+    int64_t i;
+    // add keywords to symbol table
+    i = Char; while (i <= While) {tokenize(); symbol_ptr[Token] = i++;}
+    // add Native CALL to symbol table
+    i = OPEN; while (i <= EXIT) {
+        tokenize();
+        symbol_ptr[Class] = Sys;
+        symbol_ptr[Type] = INT;
+        symbol_ptr[Value] = i++;
+    }
+    tokenize(); symbol_ptr[Token] = Char; // handle void type
+    tokenize(); main_ptr = symbol_ptr; // keep track of main
 }
 
 int initVM() {
@@ -181,7 +202,8 @@ int runVM() {
     while (1) {
         op = *pc++; // read instruction
         // load & save
-        if (op == IMM)          ax = *pc++;                         // load immediate
+        if (op == IMM)          ax = *pc++;                         // load immediate(or global addr)
+        else if (op == LEA)     ax = (int64_t)bp + *pc++;           // load local addr
         else if (op == LC)      ax = *(char*)ax;                    // load char
         else if (op == LI)      ax = *(int64_t*)ax;                 // load int
         else if (op == SC)      *(char*)*sp++ = ax;                 // save char to stack
@@ -217,11 +239,8 @@ int runVM() {
         else if (op == CSF)     sp = sp + *pc++;
         // return caller: retore stack, retore old bp, pc point to caller code addr(store by CALL) 
         else if (op == RET)     {sp = bp; bp = (int64_t*)*sp++; pc = (int64_t*)*sp++;}        
-        // load arguments address: load effective address
-        else if (op == LEA)     ax = (int64_t)bp + *pc++;
         // end for call function.
         // native call
-        else if (op == EXIT)    {printf("exit(%lld)\n", *sp); return *sp;}
         else if (op == OPEN)    {ax = open((char*)sp[1], sp[0]);}
         else if (op == CLOS)    {ax = close(*sp);}
         else if (op == READ)    {ax = read(sp[2], (char*)sp[1], *sp);}
@@ -231,6 +250,7 @@ int runVM() {
         else if (op == FREE)    {free((int64_t*)*sp);}
         else if (op == MSET)    {ax = (int64_t)memset((char*)sp[2], sp[1], *sp);}
         else if (op == MCMP)    {ax = memcmp((char*)sp[2], (char*)sp[1], *sp);}
+        else if (op == EXIT)    {printf("exit(%lld)\n", *sp); return *sp;}
         else {
             printf("unkown instruction: %lld\n", op);
             return -1;
@@ -266,6 +286,8 @@ int main(int argc, char** argv) {
     if (loadCode(*(argv+1)) != ok) return -1;
     // init memory & register
     if (initVM() != ok) return -1;
+    // prepare keywords for symbol table
+    prepKeyword();
     // parse: tokenize & parse get AST
     parse();
     // generate instructions from AST for VM
