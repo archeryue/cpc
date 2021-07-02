@@ -154,57 +154,13 @@ void assert(int64 tk) {
     tokenize();
 }
 
-// BNF without left recursion
-//   <expr> ::= <term> <expr_r>
-// <expr_r> ::= + <term> <expr_r>
-//            | - <term> <expr_r>
-//            | <empty>
-//   <term> ::= <factor> <term_r>
-// <term_r> ::= * <factor> <term_r>
-//            | / <factor> <term_r>
-//            | <empty>
-// <factor> ::= (<expr>)               
-//            | Num                    
-
-int64 expr();
-
-int64 factor() {
-    int value;
-    if (token == '(') {assert('('); value = expr(); assert(')');} 
-    else {value = token_val; assert(Num);}
-    return value;
-}
-
-int64 term_r(int64 left) {
-    int value;
-    if (token == '*') {assert('*'); value = left * factor(); return term_r(value);}
-    else if (token == '/') {assert('/'); value = left / factor(); return term_r(value);}
-    else return left;
-}
-
-int64 term() {
-    int left = factor();
-    return term_r(left);
-}
-
-int64 expr_r(int left) {
-    int value;
-    if (token == '+') {assert('+'); value = left + term(); return expr_r(value);}
-    else if (token == '-') {assert('-'); value = left - term(); return expr_r(value);}
-    else return left;
-}
-
-int64 expr() {
-    int left = term();
-    return expr_r(left);
-}
-
 void parse() {
-    // todo
-}
-
-void generate() {
-    // todo
+    tokenize();
+    while (token > 0) {
+        // parse enum
+        // parse var
+        // parse func
+    }
 }
 
 void keyword() {
