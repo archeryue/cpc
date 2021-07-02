@@ -38,7 +38,7 @@ enum {Num = 128, Fun, Sys, Glo, Loc, Id,
 // fields of symbol_table: copy from c4, delete HXXX
 enum {Token, Hash, Name, Class, Type, Value, PtrSize};
 
-// types of variables & functions
+// types of variables & functions in symbol_table
 enum {CHAR, INT, INT64, PTR};
 
 // src code & dump
@@ -146,15 +146,64 @@ void tokenize() {
     }
 }
 
+void assert(int64 tk) {
+    if (token != tk) {
+        printf("expect token: %lld(%c), get: %lld(%c)\n", tk, (int)tk, token, (int)token);
+        exit(-1);
+    }
+    tokenize();
+}
+
+// BNF without left recursion
+//   <expr> ::= <term> <expr_r>
+// <expr_r> ::= + <term> <expr_r>
+//            | - <term> <expr_r>
+//            | <empty>
+//   <term> ::= <factor> <term_r>
+// <term_r> ::= * <factor> <term_r>
+//            | / <factor> <term_r>
+//            | <empty>
+// <factor> ::= (<expr>)               
+//            | Num                    
+
+int64 expr();
+
+int64 factor() {
+    int value;
+    if (token == '(') {assert('('); value = expr(); assert(')');} 
+    else {value = token_val; assert(Num);}
+    return value;
+}
+
+int64 term_r(int64 left) {
+    int value;
+    if (token == '*') {assert('*'); value = left * factor(); return term_r(value);}
+    else if (token == '/') {assert('/'); value = left / factor(); return term_r(value);}
+    else return left;
+}
+
+int64 term() {
+    int left = factor();
+    return term_r(left);
+}
+
+int64 expr_r(int left) {
+    int value;
+    if (token == '+') {assert('+'); value = left + term(); return expr_r(value);}
+    else if (token == '-') {assert('-'); value = left - term(); return expr_r(value);}
+    else return left;
+}
+
+int64 expr() {
+    int left = term();
+    return expr_r(left);
+}
+
 void parse() {
     // todo
 }
 
 void generate() {
-    // todo
-}
-
-void exprEval() {
     // todo
 }
 
