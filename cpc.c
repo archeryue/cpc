@@ -18,8 +18,8 @@ int64 * code,         // code segment
 char  * data;         // data segment
 
 int64 * pc,           // pc register
-      * sp,           // esp register
-      * bp;           // ebp register
+      * sp,           // rsp register
+      * bp;           // rbp register
 
 int64 ax,             // common register
       cycle;
@@ -207,7 +207,7 @@ void generate() {
     // todo
 }
 
-void prepKeyword() {
+void keyword() {
     char* keyword = "char int int64 enum if else return sizeof while "
         "open read close printf malloc free memset memcmp exit void main";
     int64 i;
@@ -224,7 +224,7 @@ void prepKeyword() {
     tokenize(); main_ptr = symbol_ptr; // keep track of main
 }
 
-int initVM() {
+int init_vm() {
     // allocate memory for virtual machine
     if (!(code = code_dump = malloc(MAX_SIZE))) {
         printf("could not malloc(%lld) for code segment\n", MAX_SIZE);
@@ -247,7 +247,7 @@ int initVM() {
     return ok;
 }
 
-int runVM() {
+int run_vm() {
     int64 op;
     int64* tmp;
     while (1) {
@@ -310,7 +310,7 @@ int runVM() {
     return ok;
 }
 
-int loadCode(char* file) {
+int load_src(char* file) {
     int64 fd;
     // use open/read/close for bootstrap.
     if ((fd = open(file, 0)) < 0) {
@@ -334,15 +334,13 @@ int loadCode(char* file) {
 
 int main(int argc, char** argv) {
     // load source code
-    if (loadCode(*(argv+1)) != ok) return -1;
+    if (load_src(*(argv+1)) != ok) return -1;
     // init memory & register
-    if (initVM() != ok) return -1;
+    if (init_vm() != ok) return -1;
     // prepare keywords for symbol table
-    prepKeyword();
-    // parse: tokenize & parse get AST
+    keyword();
+    // parse and generate vm instructions, save to vm
     parse();
-    // generate instructions from AST for VM
-    generate();
-    // run
-    return runVM();
+    // run vm and execute instructions
+    return run_vm();
 }
