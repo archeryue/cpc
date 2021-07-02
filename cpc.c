@@ -247,7 +247,7 @@ int runVM() {
         else if (op == PRTF)    {tmp = sp + pc[1]; ax = printf((char*)tmp[-1], tmp[-2], tmp[-3],
                                                                     tmp[-4], tmp[-5], tmp[-6]);}
         else if (op == MALC)    {ax = (int64_t)malloc(*sp);}
-        else if (op == FREE)    {free((int64_t*)*sp);}
+        else if (op == FREE)    {free((void*)*sp);}
         else if (op == MSET)    {ax = (int64_t)memset((char*)sp[2], sp[1], *sp);}
         else if (op == MCMP)    {ax = memcmp((char*)sp[2], (char*)sp[1], *sp);}
         else if (op == EXIT)    {printf("exit(%lld)\n", *sp); return *sp;}
