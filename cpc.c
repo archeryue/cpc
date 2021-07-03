@@ -23,8 +23,8 @@ int64 * pc,           // pc register
 int64 ax,             // common register
       cycle;
 
-// instruction set: copy from c4, change ENT/ADJ/LEV to NSF/CSF/RET, add CALL.
-enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSF, CSF, RET, LI, LC, SI, SC, PUSH,
+// instruction set: copy from c4, change ENT/ADJ/LEV to NSVA/DSAR/RET, add CALL.
+enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSVA, DSAR, RET, LI, LC, SI, SC, PUSH,
     OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV,
     MOD, OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT};
 
@@ -220,21 +220,47 @@ void parse_param() {
         // parse pointer's star
         while (token == Mul) {assert(Mul); type = type + PTR;}
         check_local_id(); assert(Id);
-        // mark identifier global attributes, and store local ones
-        symbol_ptr[GClass] = symbol_ptr[Class]; symbol_ptr[Class] = Loc;
-        symbol_ptr[GType] = symbol_ptr[Type]; symbol_ptr[Type] = type;
-        symbol_ptr[GValue] = symbol_ptr[Value]; symbol_ptr[Value] = i++;
+        hide_global();
+        symbol_ptr[Class] = Loc;
+        symbol_ptr[Type] = type;
+        symbol_ptr[Value] = i++;
         if (token == ',') assert(',');
     }
     ibp = i + 1;
 }
 
+void parse_stmt() {
+
+}
+
 void parse_fun() {
-    // todo
+    int64 type, base_type;
+    i = ibp + 1; // keep space for bp
+    // local variables must be declare in advance 
+    while (token == Char || token == Int || token == Int64) {
+        base_type = parse_base_type();
+        while (token != ';') {
+            type = base_type; // parse pointer's star
+            while (token == Mul) {assert(Mul); type = type + PTR;}
+            check_local_id(); assert(Id);
+            hide_global();
+            symbol_ptr[Class] = Loc;
+            symbol_ptr[Type] = type;
+            symbol_ptr[Value] = i++;
+            if (token == ',') assert(',');
+        }
+        assert(';');
+    }
+    // new stack frame for vars
+    *++code = NSVA;
+    // stack frame size
+    *++code = i - ibp;
+    parse_stmt();
+    *++code = RET;
 }
 
 void parse() {
-    int64 type;
+    int64 type, base_type;
     token = 1; // just for loop condition
     while (token > 0) {
         tokenize(); // start or skip last ; | }
@@ -244,10 +270,10 @@ void parse() {
             if (token != '{') assert(Id); // skip enum name
             assert('{'); parse_enum(); assert('}');
         } else {
-            type = parse_base_type();
+            base_type = parse_base_type();
             // parse var or func definition
             while (token != ';' && token != '}') {
-                // parse pointer's star
+                type = base_type; // parse pointer's star
                 while (token == Mul) {assert(Mul); type = type + PTR;}
                 check_new_id();
                 assert(Id);
@@ -353,10 +379,10 @@ int run_vm() {
         // some complicate instructions for function call
         // call function: push pc + 1 to stack & pc jump to func addr(pc point to)
         else if (op == CALL)    {*--sp = (int64)(pc+1); pc = (int64*)*pc;}
-        // new stack frame: save bp, bp -> caller stack, stack add frame
-        else if (op == NSF)     {*--sp = (int64)bp; bp = sp; sp = sp - *pc++;}
-        // clean stack frame: stack clean frame, same as x86 : add esp, <size>
-        else if (op == CSF)     sp = sp + *pc++;
+        // new stack frame for vars: save bp, bp -> caller stack, stack add frame
+        else if (op == NSVA)    {*--sp = (int64)bp; bp = sp; sp = sp - *pc++;}
+        // delete stack frame for args: same as x86 : add esp, <size>
+        else if (op == DSAR)    sp = sp + *pc++;
         // return caller: retore stack, retore old bp, pc point to caller code addr(store by CALL) 
         else if (op == RET)     {sp = bp; bp = (int64*)*sp++; pc = (int64*)*sp++;}        
         // end for call function.
