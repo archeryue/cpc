@@ -231,6 +231,7 @@ void parse_param() {
 
 void parse_expr(int64 precd) {
     int64 type;
+    int64* tmp_ptr;
     // const number
     if (token == Num) {
         assert(Num);
@@ -255,7 +256,43 @@ void parse_expr(int64 precd) {
         *++code = (type == CHAR) ? 1 : (type == INT ? 4 : 8); 
         type = INT64;
     }
-    // handle identifer
+    // handle identifer: variable or function all
+    else if (token == Id) {
+        assert(Id);   
+        tmp_ptr = symbol_ptr; // for recursive parse
+        // function call
+        if (token == '(') {
+            assert('(');
+            i = 0; // number of args
+            while (token != ')') {
+                parse_expr(Assign);
+                *++code = PUSH; i++;
+                if (token == ',') assert(',');
+            } assert(')');
+            // native call
+            if (tmp_ptr[Class] == Sys) *++code = tmp_ptr[Value];
+            // fun call
+            else if (tmp_ptr[Class] == Fun) {*++code = CALL; *++code = tmp_ptr[Value];}
+            else {printf("%lld: invalid function call\n", line); exit(-1);}
+            // delete stack frame for args
+            if (i > 0) {*++code = DSAR; *++code = i;}
+            type = tmp_ptr[Type];
+        }
+        // handle enum value
+        else if (tmp_ptr[Class] == Num) {
+            *++code = IMM; *++code = tmp_ptr[Value]; type = INT64;
+        }
+        // handle variables
+        else {
+            // local var, calculate addr base ibp
+            if (tmp_ptr[Class] == Loc) {*++code = LEA; *++code = ibp - tmp_ptr[Value];}
+            // global var
+            else if (tmp_ptr[Class] == Glo) {*++code = IMM; *++code = tmp_ptr[Value];}
+            else {printf("%lld: invalid variable\n", line); exit(-1);}
+            type = tmp_ptr[Type];
+            *++code = (type == CHAR) ? LC : LI;
+        }
+    }
 }
 
 void parse_stmt() {
@@ -321,6 +358,12 @@ void parse_fun() {
     *++code = i - ibp;
     parse_stmt();
     *++code = RET;
+    // recover global variables
+    symbol_ptr = symbol_table;
+    while (symbol_ptr[Token]) {
+        if (symbol_ptr[Class] == Loc) recover_global();
+        symbol_ptr = symbol_ptr + SymSize;
+    }
 }
 
 void parse() {
