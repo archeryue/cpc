@@ -32,7 +32,7 @@ enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSVA, DSAR, RET, LI, LC, SI, SC, PUSH,
 enum {Num = 128, Fun, Sys, Glo, Loc, Id,
     Char, Int, Int64, Enum, If, Else, Return, Sizeof, While,
     // operators in precedence order.
-    Assign, Cond, Lor, Lan, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge,
+    Assign, Cond, Dor, Dand, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge,
     Shl, Shr, Add, Sub, Mul, Div, Mod, Inc, Dec, Brak};
 
 // fields of symbol_table: copy from c4, rename HXX to GXX
@@ -135,8 +135,8 @@ void tokenize() {
         else if (token == '!') {if (*src == '=') {src++; token = Ne;} return;}
         else if (token == '<') {if (*src == '=') {src++; token = Le;} else if (*src == '<') {src++; token = Shl;} else token = Lt; return;}
         else if (token == '>') {if (*src == '=') {src++; token = Ge;} else if (*src == '>') {src++; token = Shr;} else token = Gt; return;}
-        else if (token == '|') {if (*src == '|') {src++; token = Lor;} else token = Or; return;}
-        else if (token == '&') {if (*src == '&') {src++; token = Lan;} else token = And; return;}
+        else if (token == '|') {if (*src == '|') {src++; token = Dor;} else token = Or; return;}
+        else if (token == '&') {if (*src == '&') {src++; token = Dand;} else token = And; return;}
         else if (token == '^') {token = Xor; return;}
         else if (token == '%') {token = Mod; return;}
         else if (token == '*') {token = Mul; return;}
@@ -230,7 +230,7 @@ void parse_param() {
 }
 
 void parse_expr(int64 precd) {
-    int64 type;
+    int64 type, cast_type;
     int64* tmp_ptr;
     // const number
     if (token == Num) {
@@ -291,6 +291,18 @@ void parse_expr(int64 precd) {
             else {printf("%lld: invalid variable\n", line); exit(-1);}
             type = tmp_ptr[Type];
             *++code = (type == CHAR) ? LC : LI;
+        }
+    }
+    // cast or parenthesis
+    else if (token == '(') {
+        assert('(');
+        if (token == Char || token == Int || token == Int64) {
+            cast_type = token - Char + CHAR;
+            while (token == Mul) {assert(Mul); cast_type = cast_type + PTR;}
+            // cast precedence is same as Inc
+            assert(')'); parse_expr(Inc); type = cast_type;
+        } else {
+            parse_expr(Assign); assert(')');
         }
     }
 }
