@@ -154,15 +154,8 @@ void assert(int64 tk) {
     tokenize();
 }
 
-void check_id() {
-    if (token != Id) {
-        printf("line %lld: invalid or duplicate identifer\n", line);
-        exit(-1);
-    }
-}
-
 void check_local_id() {
-    check_id();
+    if (token != Id) {printf("line %lld: invalid identifer\n", line); exit(-1);}
     if (symbol_ptr[Class] == Loc) {
         printf("line %lld: duplicate declaration\n", line);
         exit(-1);
@@ -170,7 +163,7 @@ void check_local_id() {
 }
 
 void check_new_id() {
-    check_id();
+    if (token != Id) {printf("line %lld: invalid identifer\n", line); exit(-1);}
     if (symbol_ptr[Class]) {
         printf("line %lld: duplicate declaration\n", line);
         exit(-1);
@@ -273,7 +266,7 @@ void parse_expr(int64 precd) {
             if (tmp_ptr[Class] == Sys) *++code = tmp_ptr[Value];
             // fun call
             else if (tmp_ptr[Class] == Fun) {*++code = CALL; *++code = tmp_ptr[Value];}
-            else {printf("%lld: invalid function call\n", line); exit(-1);}
+            else {printf("line %lld: invalid function call\n", line); exit(-1);}
             // delete stack frame for args
             if (i > 0) {*++code = DSAR; *++code = i;}
             type = tmp_ptr[Type];
@@ -288,7 +281,7 @@ void parse_expr(int64 precd) {
             if (tmp_ptr[Class] == Loc) {*++code = LEA; *++code = ibp - tmp_ptr[Value];}
             // global var
             else if (tmp_ptr[Class] == Glo) {*++code = IMM; *++code = tmp_ptr[Value];}
-            else {printf("%lld: invalid variable\n", line); exit(-1);}
+            else {printf("line %lld: invalid variable\n", line); exit(-1);}
             type = tmp_ptr[Type];
             *++code = (type == CHAR) ? LC : LI;
         }
@@ -309,14 +302,14 @@ void parse_expr(int64 precd) {
     else if (token == Mul) {
         assert(Mul); parse_expr(Inc);
         if (type >= PTR) type = type - PTR;
-        else {printf("%lld: invalid dereference\n", line); exit(-1);}
+        else {printf("line %lld: invalid dereference\n", line); exit(-1);}
         *++code = (type == CHAR) ? LC : LI;
     }
     // reference
     else if (token == And) {
         assert(And); parse_expr(Inc);
         if (*code == LC || *code == LI) code--; // rollback load by addr
-        else {printf("%lld: invalid reference\n", line); exit(-1);}
+        else {printf("line %lld: invalid reference\n", line); exit(-1);}
         type = type + PTR;
     }
 }
