@@ -229,8 +229,33 @@ void parse_param() {
     ibp = i + 1;
 }
 
-void parse_expr(int64 prcd) {
-    // todo
+void parse_expr(int64 precd) {
+    int64 type;
+    // const number
+    if (token == Num) {
+        assert(Num);
+        *++code = IMM;
+        *++code = token_val;
+        type = INT;
+    } 
+    // const string
+    else if (token == '"') {
+        *++code = IMM;
+        *++code = token_val; // string addr
+        assert('"'); while (token == '"') assert('"'); // handle multi-row
+        data = (char*)((int64)data + 8 & -8); // add \0 for string & align 8
+        type = PTR;
+    }
+    else if (token == Sizeof) {
+        assert(Sizeof); assert('(');
+        type = parse_base_type();
+        while (token == Mul) {assert(Mul); type = type + PTR;}
+        assert(')');
+        *++code = IMM;
+        *++code = (type == CHAR) ? 1 : (type == INT ? 4 : 8); 
+        type = INT64;
+    }
+    // handle identifer
 }
 
 void parse_stmt() {
@@ -273,13 +298,13 @@ void parse_stmt() {
 }
 
 void parse_fun() {
-    int64 type, base_type;
+    int64 type;
     i = ibp + 1; // keep space for bp
     // local variables must be declare in advance 
     while (token == Char || token == Int || token == Int64) {
-        base_type = parse_base_type();
+        type = parse_base_type();
         while (token != ';') {
-            type = base_type; // parse pointer's star
+            // parse pointer's star
             while (token == Mul) {assert(Mul); type = type + PTR;}
             check_local_id(); assert(Id);
             hide_global();
@@ -299,7 +324,7 @@ void parse_fun() {
 }
 
 void parse() {
-    int64 type, base_type;
+    int64 type;
     token = 1; // just for loop condition
     while (token > 0) {
         tokenize(); // start or skip last ; | }
@@ -309,10 +334,10 @@ void parse() {
             if (token != '{') assert(Id); // skip enum name
             assert('{'); parse_enum(); assert('}');
         } else {
-            base_type = parse_base_type();
+            type = parse_base_type();
             // parse var or func definition
             while (token != ';' && token != '}') {
-                type = base_type; // parse pointer's star
+                // parse pointer's star
                 while (token == Mul) {assert(Mul); type = type + PTR;}
                 check_new_id();
                 assert(Id);
