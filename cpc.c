@@ -507,13 +507,13 @@ int run_vm() {
     while (1) {
         op = *pc++; // read instruction
         // load & save
-        if (op == IMM)          ax = *pc++;                         // load immediate(or global addr)
+        if (op == IMM)          ax = *pc++;                       // load immediate(or global addr)
         else if (op == LEA)     ax = (int64)bp + *pc++;           // load local addr
-        else if (op == LC)      ax = *(char*)ax;                    // load char
+        else if (op == LC)      ax = *(char*)ax;                  // load char
         else if (op == LI)      ax = *(int64*)ax;                 // load int
-        else if (op == SC)      *(char*)*sp++ = ax;                 // save char to stack
+        else if (op == SC)      *(char*)*sp++ = ax;               // save char to stack
         else if (op == SI)      *(int64*)*sp++ = ax;              // save int to stack
-        else if (op == PUSH)    *--sp = ax;                         // push ax to stack
+        else if (op == PUSH)    *--sp = ax;                       // push ax to stack
         // jump
         else if (op == JMP)     pc = (int64*)*pc;                 // jump
         else if (op == JZ)      pc = ax ? pc + 1 : (int64*)*pc;   // jump if ax == 0
