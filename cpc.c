@@ -45,13 +45,14 @@ enum {CHAR, INT, INT64, PTR};
 char * src,
      * src_dump;
 
-// symbol table & reuse pointer
+// symbol table & pointer
 int64 * symbol_table,
       * symbol_ptr,
       * main_ptr;
 
 int64 token, token_val;
 int64 line;
+int64 i; // reuse index var
 
 void tokenize() {
     char* ch_ptr;
@@ -153,8 +154,25 @@ void assert(int64 tk) {
     tokenize();
 }
 
+void check_new_id() {
+    if (token != Id || symbol_ptr[Class]) {
+        printf("line %lld: base variable or function declaration\n", line);
+        exit(-1);
+    }
+}
+
 void parse_enum() {
-    //todo
+    i = 0; // enum index
+    while (token != '}') {
+        check_new_id();
+        assert(Id);
+        // handle custom enum index
+        if (token == Assign) {assert(Assign); assert(Num); i = token_val;}
+        symbol_ptr[Class] = Num;
+        symbol_ptr[Type] = INT64;
+        symbol_ptr[Value] = i++;
+        if (token == ',') tokenize();
+    }
 }
 
 void parse_fun() {
@@ -181,10 +199,7 @@ void parse() {
             while (token != ';' && token != '}') {
                 // parse pointer's star
                 while (token == Mul) {assert(Mul); type = type + PTR;}
-                if (token != Id || symbol_ptr[Class]) {
-                    printf("line %lld: base variable or function declaration\n", line);
-                    exit(-1);
-                }
+                check_new_id();
                 assert(Id);
                 symbol_ptr[Type] = type;
                 if (token == '(') {
@@ -208,7 +223,6 @@ void parse() {
 void keyword() {
     char* keyword = "char int int64 enum if else return sizeof while "
         "open read close printf malloc free memset memcmp exit void main";
-    int64 i;
     // add keywords to symbol table
     i = Char; while (i <= While) {tokenize(); symbol_ptr[Token] = i++;}
     // add Native CALL to symbol table
