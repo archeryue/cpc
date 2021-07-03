@@ -6,7 +6,6 @@
 #include <memory.h>
 #include <string.h>
 
-#define ok 0
 #define int int32_t
 #define int64 int64_t
 
@@ -29,9 +28,10 @@ enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSF, CSF, RET, LI, LC, SI, SC, PUSH,
     OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV,
     MOD, OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT};
 
-// keywords & operators in precedence order, support int64. Do not support for.
+// classes/keywords, support int64. Do not support for.
 enum {Num = 128, Fun, Sys, Glo, Loc, Id,
     Char, Int, Int64, Enum, If, Else, Return, Sizeof, While,
+    // operators in precedence order.
     Assign, Cond, Lor, Lan, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge,
     Shl, Shr, Add, Sub, Mul, Div, Mod, Inc, Dec, Brak};
 
@@ -55,7 +55,6 @@ int64 line;
 
 void tokenize() {
     char* ch_ptr;
-
     while((token = *src++)) {
         if (token == '\n') line++;
         // skip marco
@@ -154,12 +153,55 @@ void assert(int64 tk) {
     tokenize();
 }
 
+void parse_enum() {
+    //todo
+}
+
+void parse_fun() {
+    //todo
+}
+
 void parse() {
-    tokenize();
+    token = 1; // just for loop condition
     while (token > 0) {
+        tokenize();
         // parse enum
-        // parse var
-        // parse func
+        if (token == Enum) {
+            assert(Enum);
+            if (token != '{') assert(Id); // skip enum name
+            assert('{'); parse_enum(); assert('}');
+        } else {
+        // parse var or func
+            int64 type;
+            // parse base type
+            if (token == Char) {assert(Char); type = CHAR;}
+            else if (token == Int) {assert(Int); type = INT;}
+            else {assert(Int64); type = INT64;}
+            // parse var or func definition
+            while (token != ';' && token != '}') {
+                // parse pointer's star
+                while (token == Mul) {assert(Mul); type = type + PTR;}
+                if (token != Id || symbol_ptr[Class]) {
+                    printf("line %lld: base variable or function declaration\n", line);
+                    exit(-1);
+                }
+                assert(Id);
+                symbol_ptr[Type] = type;
+                if (token == '(') {
+                    // function
+                    symbol_ptr[Class] = Fun;
+                    symbol_ptr[Value] = (int64)(code + 1);
+                    parse_fun();
+                } else {
+                    // variable
+                    symbol_ptr[Class] = Glo;
+                    symbol_ptr[Value] = (int64)data;
+                    data = data + 8; // keep 64 bits for each var
+                }
+                // handle int a,b,c;
+                if (token == ',') assert(',');
+            }
+        }  
     }
 }
 
@@ -194,13 +236,18 @@ int init_vm() {
         printf("could not malloc(%lld) for stack segment\n", MAX_SIZE);
         return -1;
     }
+    if (!(symbol_table = malloc(MAX_SIZE / 16))) {
+        printf("could not malloc(%lld) for symbol_table\n", MAX_SIZE / 16);
+        return -1;
+    }
     memset(code, 0, MAX_SIZE);
     memset(data, 0, MAX_SIZE);
     memset(stack, 0, MAX_SIZE);
+    memset(symbol_table, 0, MAX_SIZE / 16);
     // init register
     bp = sp = stack + MAX_SIZE; // stack downwards
     ax = 0;
-    return ok;
+    return 0;
 }
 
 int run_vm() {
@@ -263,7 +310,7 @@ int run_vm() {
             return -1;
         }
     }
-    return ok;
+    return 0;
 }
 
 int load_src(char* file) {
@@ -285,14 +332,14 @@ int load_src(char* file) {
     }
     src[cnt] = 0; // EOF
     close(fd);
-    return ok;
+    return 0;
 }
 
 int main(int argc, char** argv) {
     // load source code
-    if (load_src(*(argv+1)) != ok) return -1;
+    if (load_src(*(argv+1)) != 0) return -1;
     // init memory & register
-    if (init_vm() != ok) return -1;
+    if (init_vm() != 0) return -1;
     // prepare keywords for symbol table
     keyword();
     // parse and generate vm instructions, save to vm
