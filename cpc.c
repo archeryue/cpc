@@ -23,7 +23,7 @@ int64 * pc,           // pc register
 int64 ax,             // common register
       cycle;
 
-// instruction set: copy from c4, change ENT/ADJ/LEV to NSVA/DSAR/RET, add CALL.
+// instruction set: copy from c4, change JSR/ENT/ADJ/LEV/BZ/BNZ to CALL/NSVA/DSAR/RET/JZ/JNZ.
 enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSVA, DSAR, RET, LI, LC, SI, SC, PUSH,
     OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV,
     MOD, OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT};
@@ -229,8 +229,25 @@ void parse_param() {
     ibp = i + 1;
 }
 
-void parse_stmt() {
+void parse_expr(int64 prcd) {
+    // todo
+}
 
+void parse_stmt() {
+    int64* a;
+    int64* b;
+    if (token == If) {
+        assert(If); assert('('); parse_expr(Assign); assert(')');
+        *++code = JZ; b = ++code; // JZ to false
+        parse_stmt(); // parse true stmt
+        if (token == Else) {
+            assert(Else);
+            *b = (int64)(code + 3); // write back false point
+            *++code = JMP; b = ++code; // JMP to endif
+            parse_stmt(); // parse false stmt
+        }
+        *b = (int64)(code + 1); // write back endif point
+    }
 }
 
 void parse_fun() {
