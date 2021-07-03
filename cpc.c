@@ -299,11 +299,25 @@ void parse_expr(int64 precd) {
         if (token == Char || token == Int || token == Int64) {
             cast_type = token - Char + CHAR;
             while (token == Mul) {assert(Mul); cast_type = cast_type + PTR;}
-            // cast precedence is same as Inc
+            // use precedence Inc represent all unary operators
             assert(')'); parse_expr(Inc); type = cast_type;
         } else {
             parse_expr(Assign); assert(')');
         }
+    }
+    // derefer
+    else if (token == Mul) {
+        assert(Mul); parse_expr(Inc);
+        if (type >= PTR) type = type - PTR;
+        else {printf("%lld: invalid dereference\n", line); exit(-1);}
+        *++code = (type == CHAR) ? LC : LI;
+    }
+    // reference
+    else if (token == And) {
+        assert(And); parse_expr(Inc);
+        if (*code == LC || *code == LI) code--; // rollback load by addr
+        else {printf("%lld: invalid reference\n", line); exit(-1);}
+        type = type + PTR;
     }
 }
 
