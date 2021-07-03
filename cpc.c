@@ -222,8 +222,10 @@ void parse_param() {
     ibp = i + 1;
 }
 
+int64 type; // pass type in recursive parse expr
+
 void parse_expr(int64 precd) {
-    int64 type, cast_type;
+    int64 cast_type;
     int64* tmp_ptr;
     // const number
     if (token == Num) {
@@ -311,6 +313,37 @@ void parse_expr(int64 precd) {
         if (*code == LC || *code == LI) code--; // rollback load by addr
         else {printf("line %lld: invalid reference\n", line); exit(-1);}
         type = type + PTR;
+    }
+    // Not
+    else if (token == '!') {
+        assert('!'); parse_expr(Inc);
+        *++code = PUSH; *++code = IMM; *++code = 0; *++code = EQ;
+        type = INT64;
+    }
+    // bitwise
+    else if (token == '~') {
+        assert('~'); parse_expr(Inc);
+        *++code = PUSH; *++code = IMM; *++code = -1; *++code = XOR;
+        type = INT64;
+    }
+    // positive
+    else if (token == And) {assert(And); parse_expr(Inc); type = INT64;}
+    // negative
+    else if (token == Sub) {
+        assert(Sub); parse_expr(Inc);
+        *++code = PUSH; *++code = IMM; *++code = -1; *++code = MUL;
+        type = INT64;
+    }
+    // ++var --var
+    else if (token == Inc || token == Dec) {
+        i = token; tokenize(); parse_expr(Inc);
+        if (*code == LC) {*code = PUSH; *++code = LC;}
+        else if (*code == LI) {*code = PUSH; *++code = LI;}
+        else {printf("line %lld: invalid Inc or Dec\n", line); exit(-1);}
+        *++code = PUSH;
+        *++code = IMM; *++code = (type > PTR) ? ((type - PTR) * 4) : 1;
+        *++code = (i == Inc) ? ADD : SUB;
+        *++code = (type == CHAR) ? SC : SI;
     }
 }
 
