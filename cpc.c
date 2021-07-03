@@ -248,6 +248,28 @@ void parse_stmt() {
         }
         *b = (int64)(code + 1); // write back endif point
     }
+    else if (token == While) {
+        assert(While);
+        a = code + 1; // write loop point
+        assert('('); parse_expr(Assign); assert(')');
+        *++code = JZ; b = ++code; // JZ to endloop
+        parse_stmt();
+        *++code = JMP; *++code = (int64)a; // JMP to loop point
+        *b = (int64)(code + 1); // write back endloop point
+    }
+    else if (token == Return) {
+        assert(Return);
+        if (token != ';') parse_expr(Assign);
+        assert(';');
+        *++code = RET;
+    }
+    else if (token == '{') {
+        assert('{');
+        while (token != '}') parse_stmt(Assign);
+        assert('}');
+    }
+    else if (token == ';') assert(';');
+    else {parse_expr(Assign); assert(';');}
 }
 
 void parse_fun() {
