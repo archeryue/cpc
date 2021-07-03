@@ -35,8 +35,8 @@ enum {Num = 128, Fun, Sys, Glo, Loc, Id,
     Assign, Cond, Lor, Lan, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge,
     Shl, Shr, Add, Sub, Mul, Div, Mod, Inc, Dec, Brak};
 
-// fields of symbol_table: copy from c4, delete HXXX
-enum {Token, Hash, Name, Class, Type, Value, PtrSize};
+// fields of symbol_table: copy from c4, rename HXX to GXX
+enum {Token, Hash, Name, Class, Type, Value, GClass, GType, GValue, SymSize};
 
 // types of variables & functions in symbol_table
 enum {CHAR, INT, INT64, PTR};
@@ -76,7 +76,7 @@ void tokenize() {
                     token = symbol_ptr[Token];
                     return;
                 }
-                symbol_ptr += PtrSize;
+                symbol_ptr += SymSize;
             }
             // add new symbol
             symbol_ptr[Name] = (int64)ch_ptr;
@@ -154,9 +154,25 @@ void assert(int64 tk) {
     tokenize();
 }
 
+void check_id() {
+    if (token != Id) {
+        printf("line %lld: invalid or duplicate identifer\n", line);
+        exit(-1);
+    }
+}
+
+void check_local_id() {
+    check_id();
+    if (symbol_ptr[Class] == Loc) {
+        printf("line %lld: duplicate declaration\n", line);
+        exit(-1);
+    }
+}
+
 void check_new_id() {
-    if (token != Id || symbol_ptr[Class]) {
-        printf("line %lld: base variable or function declaration\n", line);
+    check_id();
+    if (symbol_ptr[Class]) {
+        printf("line %lld: duplicate declaration\n", line);
         exit(-1);
     }
 }
@@ -175,26 +191,60 @@ void parse_enum() {
     }
 }
 
+int64 parse_base_type() {
+    // parse base type
+    if (token == Char) {assert(Char); return CHAR;}
+    else if (token == Int) {assert(Int); return INT;}
+    else {assert(Int64); return INT64;}
+}
+
+void hide_global() {
+    symbol_ptr[GClass] = symbol_ptr[Class];
+    symbol_ptr[GType] = symbol_ptr[Type];
+    symbol_ptr[GValue] = symbol_ptr[Value];
+}
+
+void recover_global() {
+    symbol_ptr[Class] = symbol_ptr[GClass];
+    symbol_ptr[Type] = symbol_ptr[GType];
+    symbol_ptr[Value] = symbol_ptr[GValue];
+}
+
+int64 ibp;
+
+void parse_param() {
+    int64 type;
+    i = 0;
+    while (token != ')') {
+        type = parse_base_type(); 
+        // parse pointer's star
+        while (token == Mul) {assert(Mul); type = type + PTR;}
+        check_local_id(); assert(Id);
+        // mark identifier global attributes, and store local ones
+        symbol_ptr[GClass] = symbol_ptr[Class]; symbol_ptr[Class] = Loc;
+        symbol_ptr[GType] = symbol_ptr[Type]; symbol_ptr[Type] = type;
+        symbol_ptr[GValue] = symbol_ptr[Value]; symbol_ptr[Value] = i++;
+        if (token == ',') assert(',');
+    }
+    ibp = i + 1;
+}
+
 void parse_fun() {
-    //todo
+    // todo
 }
 
 void parse() {
+    int64 type;
     token = 1; // just for loop condition
     while (token > 0) {
-        tokenize();
+        tokenize(); // start or skip last ; | }
         // parse enum
         if (token == Enum) {
             assert(Enum);
             if (token != '{') assert(Id); // skip enum name
             assert('{'); parse_enum(); assert('}');
         } else {
-        // parse var or func
-            int64 type;
-            // parse base type
-            if (token == Char) {assert(Char); type = CHAR;}
-            else if (token == Int) {assert(Int); type = INT;}
-            else {assert(Int64); type = INT64;}
+            type = parse_base_type();
             // parse var or func definition
             while (token != ';' && token != '}') {
                 // parse pointer's star
@@ -206,6 +256,7 @@ void parse() {
                     // function
                     symbol_ptr[Class] = Fun;
                     symbol_ptr[Value] = (int64)(code + 1);
+                    assert('('); parse_param(); assert(')');
                     parse_fun();
                 } else {
                     // variable
@@ -221,7 +272,8 @@ void parse() {
 }
 
 void keyword() {
-    char* keyword = "char int int64 enum if else return sizeof while "
+    char* keyword;
+    keyword = "char int int64 enum if else return sizeof while "
         "open read close printf malloc free memset memcmp exit void main";
     // add keywords to symbol table
     i = Char; while (i <= While) {tokenize(); symbol_ptr[Token] = i++;}
@@ -329,6 +381,7 @@ int run_vm() {
 
 int load_src(char* file) {
     int64 fd;
+    int64 cnt;
     // use open/read/close for bootstrap.
     if ((fd = open(file, 0)) < 0) {
         printf("could not open source code(%s)\n", file);
@@ -339,7 +392,6 @@ int load_src(char* file) {
         return -1;
     }
     line = 0;
-    int64 cnt;
     if ((cnt = read(fd, src, MAX_SIZE - 1)) <= 0) {
         printf("could not read source code(%lld)\n", cnt);
         return -1;
