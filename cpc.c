@@ -407,6 +407,16 @@ void parse_expr(int precd) {
         else if (token == Mul) {tokenize(); *++code = PUSH; parse_expr(Inc); *++code = MUL; type = INT;}
         else if (token == Div) {tokenize(); *++code = PUSH; parse_expr(Inc); *++code = DIV; type = INT;}
         else if (token == Mod) {tokenize(); *++code = PUSH; parse_expr(Inc); *++code = MOD; type = INT;}
+        // var++, var--
+        else if (token == Inc || token == Dec) {
+            *++code = PUSH; // just modify value in mem, not register
+            *++code = IMM; *++code = (type > PTR) ? 8 : 1;
+            *++code = (token == Inc) ? ADD : SUB;
+            *++code = (type == CHAR) ? SC : SI;
+            *++code = PUSH; // restore ax for current expr calculate
+            *++code = IMM; *++code = (type > PTR) ? sizeof(int) : sizeof(char);
+            *++code = (token == Inc) ? SUB : ADD;
+        }
     }
 }
 
