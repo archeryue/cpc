@@ -202,7 +202,6 @@ void recover_global() {
 }
 
 int ibp;
-
 void parse_param() {
     int type;
     i = 0;
