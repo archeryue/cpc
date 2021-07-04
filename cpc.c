@@ -147,7 +147,7 @@ void tokenize() {
 
 void assert(int tk) {
     if (token != tk) {
-        printf("expect token: %lld(%c), get: %lld(%c)\n", tk, (char)tk, token, (char)token);
+        printf("line %lld: expect token: %lld(%c), get: %lld(%c)\n", line, tk, (char)tk, token, (char)token);
         exit(-1);
     }
     tokenize();
@@ -491,7 +491,7 @@ void parse_fun() {
     *++code = NSVA;
     // stack frame size
     *++code = i - ibp;
-    parse_stmt();
+    while (token != '}') parse_stmt();
     *++code = RET;
     // recover global variables
     symbol_ptr = symbol_table;
