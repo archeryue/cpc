@@ -339,7 +339,7 @@ void parse_expr(int precd) {
         else if (*code == LI) {*code = PUSH; *++code = LI;}
         else {printf("line %lld: invalid Inc or Dec\n", line); exit(-1);}
         *++code = PUSH;
-        *++code = IMM; *++code = (type > PTR) ? ((type - PTR) * 4) : 1;
+        *++code = IMM; *++code = (type > PTR) ? 8 : 1;
         *++code = (i == Inc) ? ADD : SUB;
         *++code = (type == CHAR) ? SC : SI;
     }
