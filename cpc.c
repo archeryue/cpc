@@ -6,31 +6,30 @@
 #include <memory.h>
 #include <string.h>
 
-#define int int32_t
-#define int64 int64_t
+#define int int64_t
 
-int64 MAX_SIZE = 128 * 1024 * 8; // 1MB = 128k * 64bit
+int MAX_SIZE = 128 * 1024 * 8; // 1MB = 128k * 64bit
 
-int64 * code,         // code segment
-      * code_dump,    // for dump
-      * stack;        // stack segment
-char  * data;         // data segment
+int * code,         // code segment
+    * code_dump,    // for dump
+    * stack;        // stack segment
+char* data;         // data segment
 
-int64 * pc,           // pc register
-      * sp,           // rsp register
-      * bp;           // rbp register
+int * pc,           // pc register
+    * sp,           // rsp register
+    * bp;           // rbp register
 
-int64 ax,             // common register
-      cycle;
+int ax,             // common register
+    cycle;
 
 // instruction set: copy from c4, change JSR/ENT/ADJ/LEV/BZ/BNZ to CALL/NSVA/DSAR/RET/JZ/JNZ.
 enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSVA, DSAR, RET, LI, LC, SI, SC, PUSH,
     OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV,
     MOD, OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT};
 
-// classes/keywords, support int64. Do not support for.
+// classes/keywords, Do not support for.
 enum {Num = 128, Fun, Sys, Glo, Loc, Id,
-    Char, Int, Int64, Enum, If, Else, Return, Sizeof, While,
+    Char, Int, Enum, If, Else, Return, Sizeof, While,
     // operators in precedence order.
     Assign, Cond, Dor, Dand, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge,
     Shl, Shr, Add, Sub, Mul, Div, Mod, Inc, Dec, Brak};
@@ -39,20 +38,20 @@ enum {Num = 128, Fun, Sys, Glo, Loc, Id,
 enum {Token, Hash, Name, Class, Type, Value, GClass, GType, GValue, SymSize};
 
 // types of variables & functions in symbol_table
-enum {CHAR, INT, INT64, PTR};
+enum {CHAR, INT, PTR};
 
 // src code & dump
-char * src,
-     * src_dump;
+char* src,
+    * src_dump;
 
 // symbol table & pointer
-int64 * symbol_table,
-      * symbol_ptr,
-      * main_ptr;
+int * symbol_table,
+    * symbol_ptr,
+    * main_ptr;
 
-int64 token, token_val;
-int64 line;
-int64 i; // reuse index var
+int token, token_val;
+int line;
+int i; // reuse index var
 
 void tokenize() {
     char* ch_ptr;
@@ -79,7 +78,7 @@ void tokenize() {
                 symbol_ptr += SymSize;
             }
             // add new symbol
-            symbol_ptr[Name] = (int64)ch_ptr;
+            symbol_ptr[Name] = (int)ch_ptr;
             symbol_ptr[Hash] = token;
             token = symbol_ptr[Token] = Id;
             return;
@@ -112,7 +111,7 @@ void tokenize() {
                 if (token == '"') *data++ = token_val;
             }
             src++;
-            if (token == '"') token_val = (int64)ch_ptr; 
+            if (token == '"') token_val = (int)ch_ptr; 
             // single char is Num
             else token = Num;
             return;
@@ -146,9 +145,9 @@ void tokenize() {
     }
 }
 
-void assert(int64 tk) {
+void assert(int tk) {
     if (token != tk) {
-        printf("expect token: %lld(%c), get: %lld(%c)\n", tk, (int)tk, token, (int)token);
+        printf("expect token: %lld(%c), get: %lld(%c)\n", tk, (char)tk, token, (char)token);
         exit(-1);
     }
     tokenize();
@@ -178,17 +177,16 @@ void parse_enum() {
         // handle custom enum index
         if (token == Assign) {assert(Assign); assert(Num); i = token_val;}
         symbol_ptr[Class] = Num;
-        symbol_ptr[Type] = INT64;
+        symbol_ptr[Type] = INT;
         symbol_ptr[Value] = i++;
         if (token == ',') tokenize();
     }
 }
 
-int64 parse_base_type() {
+int parse_base_type() {
     // parse base type
     if (token == Char) {assert(Char); return CHAR;}
-    else if (token == Int) {assert(Int); return INT;}
-    else {assert(Int64); return INT64;}
+    else {assert(Int); return INT;}
 }
 
 void hide_global() {
@@ -203,10 +201,10 @@ void recover_global() {
     symbol_ptr[Value] = symbol_ptr[GValue];
 }
 
-int64 ibp;
+int ibp;
 
 void parse_param() {
-    int64 type;
+    int type;
     i = 0;
     while (token != ')') {
         type = parse_base_type(); 
@@ -222,11 +220,11 @@ void parse_param() {
     ibp = i + 1;
 }
 
-int64 type; // pass type in recursive parse expr
+int type; // pass type in recursive parse expr
 
-void parse_expr(int64 precd) {
-    int64 cast_type;
-    int64* tmp_ptr;
+void parse_expr(int precd) {
+    int cast_type;
+    int* tmp_ptr;
     // const number
     if (token == Num) {
         assert(Num);
@@ -239,7 +237,7 @@ void parse_expr(int64 precd) {
         *++code = IMM;
         *++code = token_val; // string addr
         assert('"'); while (token == '"') assert('"'); // handle multi-row
-        data = (char*)((int64)data + 8 & -8); // add \0 for string & align 8
+        data = (char*)((int)data + 8 & -8); // add \0 for string & align 8
         type = PTR;
     }
     else if (token == Sizeof) {
@@ -248,8 +246,8 @@ void parse_expr(int64 precd) {
         while (token == Mul) {assert(Mul); type = type + PTR;}
         assert(')');
         *++code = IMM;
-        *++code = (type == CHAR) ? 1 : (type == INT ? 4 : 8); 
-        type = INT64;
+        *++code = (type == CHAR) ? 1 : 8; 
+        type = INT;
     }
     // handle identifer: variable or function all
     else if (token == Id) {
@@ -275,7 +273,7 @@ void parse_expr(int64 precd) {
         }
         // handle enum value
         else if (tmp_ptr[Class] == Num) {
-            *++code = IMM; *++code = tmp_ptr[Value]; type = INT64;
+            *++code = IMM; *++code = tmp_ptr[Value]; type = INT;
         }
         // handle variables
         else {
@@ -291,7 +289,7 @@ void parse_expr(int64 precd) {
     // cast or parenthesis
     else if (token == '(') {
         assert('(');
-        if (token == Char || token == Int || token == Int64) {
+        if (token == Char || token == Int) {
             cast_type = token - Char + CHAR;
             while (token == Mul) {assert(Mul); cast_type = cast_type + PTR;}
             // use precedence Inc represent all unary operators
@@ -318,21 +316,21 @@ void parse_expr(int64 precd) {
     else if (token == '!') {
         assert('!'); parse_expr(Inc);
         *++code = PUSH; *++code = IMM; *++code = 0; *++code = EQ;
-        type = INT64;
+        type = INT;
     }
     // bitwise
     else if (token == '~') {
         assert('~'); parse_expr(Inc);
         *++code = PUSH; *++code = IMM; *++code = -1; *++code = XOR;
-        type = INT64;
+        type = INT;
     }
     // positive
-    else if (token == And) {assert(And); parse_expr(Inc); type = INT64;}
+    else if (token == And) {assert(And); parse_expr(Inc); type = INT;}
     // negative
     else if (token == Sub) {
         assert(Sub); parse_expr(Inc);
         *++code = PUSH; *++code = IMM; *++code = -1; *++code = MUL;
-        type = INT64;
+        type = INT;
     }
     // ++var --var
     else if (token == Inc || token == Dec) {
@@ -348,19 +346,19 @@ void parse_expr(int64 precd) {
 }
 
 void parse_stmt() {
-    int64* a;
-    int64* b;
+    int* a;
+    int* b;
     if (token == If) {
         assert(If); assert('('); parse_expr(Assign); assert(')');
         *++code = JZ; b = ++code; // JZ to false
         parse_stmt(); // parse true stmt
         if (token == Else) {
             assert(Else);
-            *b = (int64)(code + 3); // write back false point
+            *b = (int)(code + 3); // write back false point
             *++code = JMP; b = ++code; // JMP to endif
             parse_stmt(); // parse false stmt
         }
-        *b = (int64)(code + 1); // write back endif point
+        *b = (int)(code + 1); // write back endif point
     }
     else if (token == While) {
         assert(While);
@@ -368,8 +366,8 @@ void parse_stmt() {
         assert('('); parse_expr(Assign); assert(')');
         *++code = JZ; b = ++code; // JZ to endloop
         parse_stmt();
-        *++code = JMP; *++code = (int64)a; // JMP to loop point
-        *b = (int64)(code + 1); // write back endloop point
+        *++code = JMP; *++code = (int)a; // JMP to loop point
+        *b = (int)(code + 1); // write back endloop point
     }
     else if (token == Return) {
         assert(Return);
@@ -387,10 +385,10 @@ void parse_stmt() {
 }
 
 void parse_fun() {
-    int64 type;
+    int type;
     i = ibp + 1; // keep space for bp
     // local variables must be declare in advance 
-    while (token == Char || token == Int || token == Int64) {
+    while (token == Char || token == Int) {
         type = parse_base_type();
         while (token != ';') {
             // parse pointer's star
@@ -419,7 +417,7 @@ void parse_fun() {
 }
 
 void parse() {
-    int64 type;
+    int type;
     token = 1; // just for loop condition
     while (token > 0) {
         tokenize(); // start or skip last ; | }
@@ -440,13 +438,13 @@ void parse() {
                 if (token == '(') {
                     // function
                     symbol_ptr[Class] = Fun;
-                    symbol_ptr[Value] = (int64)(code + 1);
+                    symbol_ptr[Value] = (int)(code + 1);
                     assert('('); parse_param(); assert(')');
                     parse_fun();
                 } else {
                     // variable
                     symbol_ptr[Class] = Glo;
-                    symbol_ptr[Value] = (int64)data;
+                    symbol_ptr[Value] = (int)data;
                     data = data + 8; // keep 64 bits for each var
                 }
                 // handle int a,b,c;
@@ -458,7 +456,7 @@ void parse() {
 
 void keyword() {
     char* keyword;
-    keyword = "char int int64 enum if else return sizeof while "
+    keyword = "char int int enum if else return sizeof while "
         "open read close printf malloc free memset memcmp exit void main";
     // add keywords to symbol table
     i = Char; while (i <= While) {tokenize(); symbol_ptr[Token] = i++;}
@@ -502,22 +500,22 @@ int init_vm() {
 }
 
 int run_vm() {
-    int64 op;
-    int64* tmp;
+    int op;
+    int* tmp;
     while (1) {
         op = *pc++; // read instruction
         // load & save
-        if (op == IMM)          ax = *pc++;                       // load immediate(or global addr)
-        else if (op == LEA)     ax = (int64)bp + *pc++;           // load local addr
-        else if (op == LC)      ax = *(char*)ax;                  // load char
-        else if (op == LI)      ax = *(int64*)ax;                 // load int
-        else if (op == SC)      *(char*)*sp++ = ax;               // save char to stack
-        else if (op == SI)      *(int64*)*sp++ = ax;              // save int to stack
-        else if (op == PUSH)    *--sp = ax;                       // push ax to stack
+        if (op == IMM)          ax = *pc++;                     // load immediate(or global addr)
+        else if (op == LEA)     ax = (int)bp + *pc++;           // load local addr
+        else if (op == LC)      ax = *(char*)ax;                // load char
+        else if (op == LI)      ax = *(int*)ax;                 // load int
+        else if (op == SC)      *(char*)*sp++ = ax;             // save char to stack
+        else if (op == SI)      *(int*)*sp++ = ax;              // save int to stack
+        else if (op == PUSH)    *--sp = ax;                     // push ax to stack
         // jump
-        else if (op == JMP)     pc = (int64*)*pc;                 // jump
-        else if (op == JZ)      pc = ax ? pc + 1 : (int64*)*pc;   // jump if ax == 0
-        else if (op == JNZ)     pc = ax ? (int64*)*pc : pc + 1;   // jump if ax != 0
+        else if (op == JMP)     pc = (int*)*pc;                 // jump
+        else if (op == JZ)      pc = ax ? pc + 1 : (int*)*pc;   // jump if ax == 0
+        else if (op == JNZ)     pc = ax ? (int*)*pc : pc + 1;   // jump if ax != 0
         // arithmetic
         else if (op == OR)      ax = *sp++ |  ax;
         else if (op == XOR)     ax = *sp++ ^  ax;
@@ -537,13 +535,13 @@ int run_vm() {
         else if (op == MOD)     ax = *sp++ %  ax;
         // some complicate instructions for function call
         // call function: push pc + 1 to stack & pc jump to func addr(pc point to)
-        else if (op == CALL)    {*--sp = (int64)(pc+1); pc = (int64*)*pc;}
+        else if (op == CALL)    {*--sp = (int)(pc+1); pc = (int*)*pc;}
         // new stack frame for vars: save bp, bp -> caller stack, stack add frame
-        else if (op == NSVA)    {*--sp = (int64)bp; bp = sp; sp = sp - *pc++;}
+        else if (op == NSVA)    {*--sp = (int)bp; bp = sp; sp = sp - *pc++;}
         // delete stack frame for args: same as x86 : add esp, <size>
         else if (op == DSAR)    sp = sp + *pc++;
         // return caller: retore stack, retore old bp, pc point to caller code addr(store by CALL) 
-        else if (op == RET)     {sp = bp; bp = (int64*)*sp++; pc = (int64*)*sp++;}        
+        else if (op == RET)     {sp = bp; bp = (int*)*sp++; pc = (int*)*sp++;}        
         // end for call function.
         // native call
         else if (op == OPEN)    {ax = open((char*)sp[1], sp[0]);}
@@ -551,9 +549,9 @@ int run_vm() {
         else if (op == READ)    {ax = read(sp[2], (char*)sp[1], *sp);}
         else if (op == PRTF)    {tmp = sp + pc[1]; ax = printf((char*)tmp[-1], tmp[-2], tmp[-3],
                                                                     tmp[-4], tmp[-5], tmp[-6]);}
-        else if (op == MALC)    {ax = (int64)malloc(*sp);}
+        else if (op == MALC)    {ax = (int)malloc(*sp);}
         else if (op == FREE)    {free((void*)*sp);}
-        else if (op == MSET)    {ax = (int64)memset((char*)sp[2], sp[1], *sp);}
+        else if (op == MSET)    {ax = (int)memset((char*)sp[2], sp[1], *sp);}
         else if (op == MCMP)    {ax = memcmp((char*)sp[2], (char*)sp[1], *sp);}
         else if (op == EXIT)    {printf("exit(%lld)\n", *sp); return *sp;}
         else {
@@ -565,8 +563,8 @@ int run_vm() {
 }
 
 int load_src(char* file) {
-    int64 fd;
-    int64 cnt;
+    int fd;
+    int cnt;
     // use open/read/close for bootstrap.
     if ((fd = open(file, 0)) < 0) {
         printf("could not open source code(%s)\n", file);
@@ -586,7 +584,8 @@ int load_src(char* file) {
     return 0;
 }
 
-int main(int argc, char** argv) {
+// after bootstrap use [int] istead of [int32_t]
+int32_t main(int32_t argc, char** argv) {
     // load source code
     if (load_src(*(argv+1)) != 0) return -1;
     // init memory & register
