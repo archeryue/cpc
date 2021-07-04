@@ -31,7 +31,7 @@ enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSVA, DSAR, RET, LI, LC, SI, SC, PUSH,
 enum {Num = 128, Fun, Sys, Glo, Loc, Id,
     Char, Int, Enum, If, Else, Return, Sizeof, While,
     // operators in precedence order.
-    Assign, Cond, Dor, Dand, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge,
+    Assign, Cond, Lor, Land, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge,
     Shl, Shr, Add, Sub, Mul, Div, Mod, Inc, Dec, Brak};
 
 // fields of symbol_table: copy from c4, rename HXX to GXX
@@ -134,8 +134,8 @@ void tokenize() {
         else if (token == '!') {if (*src == '=') {src++; token = Ne;} return;}
         else if (token == '<') {if (*src == '=') {src++; token = Le;} else if (*src == '<') {src++; token = Shl;} else token = Lt; return;}
         else if (token == '>') {if (*src == '=') {src++; token = Ge;} else if (*src == '>') {src++; token = Shr;} else token = Gt; return;}
-        else if (token == '|') {if (*src == '|') {src++; token = Dor;} else token = Or; return;}
-        else if (token == '&') {if (*src == '&') {src++; token = Dand;} else token = And; return;}
+        else if (token == '|') {if (*src == '|') {src++; token = Lor;} else token = Or; return;}
+        else if (token == '&') {if (*src == '&') {src++; token = Land;} else token = And; return;}
         else if (token == '^') {token = Xor; return;}
         else if (token == '%') {token = Mod; return;}
         else if (token == '*') {token = Mul; return;}
@@ -227,7 +227,7 @@ void parse_expr(int precd) {
     int* tmp_ptr;
     // const number
     if (token == Num) {
-        assert(Num);
+        tokenize();
         *++code = IMM;
         *++code = token_val;
         type = INT;
@@ -241,7 +241,7 @@ void parse_expr(int precd) {
         type = PTR;
     }
     else if (token == Sizeof) {
-        assert(Sizeof); assert('(');
+        tokenize(); assert('(');
         type = parse_base_type();
         while (token == Mul) {assert(Mul); type = type + PTR;}
         assert(')');
@@ -251,7 +251,7 @@ void parse_expr(int precd) {
     }
     // handle identifer: variable or function all
     else if (token == Id) {
-        assert(Id);   
+        tokenize();
         tmp_ptr = symbol_ptr; // for recursive parse
         // function call
         if (token == '(') {
@@ -300,35 +300,35 @@ void parse_expr(int precd) {
     }
     // derefer
     else if (token == Mul) {
-        assert(Mul); parse_expr(Inc);
+        tokenize(); parse_expr(Inc);
         if (type >= PTR) type = type - PTR;
         else {printf("line %lld: invalid dereference\n", line); exit(-1);}
         *++code = (type == CHAR) ? LC : LI;
     }
     // reference
     else if (token == And) {
-        assert(And); parse_expr(Inc);
+        tokenize(); parse_expr(Inc);
         if (*code == LC || *code == LI) code--; // rollback load by addr
         else {printf("line %lld: invalid reference\n", line); exit(-1);}
         type = type + PTR;
     }
     // Not
     else if (token == '!') {
-        assert('!'); parse_expr(Inc);
+        tokenize(); parse_expr(Inc);
         *++code = PUSH; *++code = IMM; *++code = 0; *++code = EQ;
         type = INT;
     }
     // bitwise
     else if (token == '~') {
-        assert('~'); parse_expr(Inc);
+        tokenize(); parse_expr(Inc);
         *++code = PUSH; *++code = IMM; *++code = -1; *++code = XOR;
         type = INT;
     }
     // positive
-    else if (token == And) {assert(And); parse_expr(Inc); type = INT;}
+    else if (token == And) {tokenize(); parse_expr(Inc); type = INT;}
     // negative
     else if (token == Sub) {
-        assert(Sub); parse_expr(Inc);
+        tokenize(); parse_expr(Inc);
         *++code = PUSH; *++code = IMM; *++code = -1; *++code = MUL;
         type = INT;
     }
@@ -348,13 +348,41 @@ void parse_expr(int precd) {
     // use [precedence climbing] method to handle binary(or postfix) operators
     while (token >= precd) {
         tmp_type = type;    
+        // assignment
         if (token == Assign) {
-            assert(Assign);
+            tokenize();
             if (*code == LC || *code == LI) *code = PUSH;
             else {printf("line %lld: invalid assignment\n", line); exit(-1);}
             parse_expr(Assign); type = tmp_type; // type can be cast
             *++code = (type == CHAR) ? SC : SI;
         }
+        // ? :, same as if stmt
+        else if (token == Cond) {
+            tokenize(); *++code = JZ; tmp_ptr = ++code;
+            parse_expr(Assign); assert(':');
+            *tmp_ptr = (int)(code + 3);
+            *++code = JMP; tmp_ptr = ++code; // save endif addr
+            parse_expr(Cond);
+            *tmp_ptr = (int)(code + 1); // write back endif point
+        }
+        // logic operators, simple and boring, copy from c4
+        else if (token == Lor) {
+            tokenize(); *++code = JNZ; tmp_ptr = ++code;
+            parse_expr(Land); *tmp_ptr = (int)(code + 1); type = INT;}
+        else if (token == Land) {
+            tokenize(); *++code = JZ; tmp_ptr = ++code;
+            parse_expr(Or); *tmp_ptr = (int)(code + 1); type = INT;}
+        else if (token == Or)  {tokenize(); *++code = PUSH; parse_expr(Xor); *++code = OR;  type = INT;}
+        else if (token == Xor) {tokenize(); *++code = PUSH; parse_expr(And); *++code = XOR; type = INT;}
+        else if (token == And) {tokenize(); *++code = PUSH; parse_expr(Eq);  *++code = AND; type = INT;}
+        else if (token == Eq)  {tokenize(); *++code = PUSH; parse_expr(Lt);  *++code = EQ;  type = INT;}
+        else if (token == Ne)  {tokenize(); *++code = PUSH; parse_expr(Lt);  *++code = NE;  type = INT;}
+        else if (token == Lt)  {tokenize(); *++code = PUSH; parse_expr(Shl); *++code = LT;  type = INT;}
+        else if (token == Gt)  {tokenize(); *++code = PUSH; parse_expr(Shl); *++code = GT;  type = INT;}
+        else if (token == Le)  {tokenize(); *++code = PUSH; parse_expr(Shl); *++code = LE;  type = INT;}
+        else if (token == Ge)  {tokenize(); *++code = PUSH; parse_expr(Shl); *++code = GE;  type = INT;}
+        else if (token == Shl) {tokenize(); *++code = PUSH; parse_expr(Add); *++code = SHL; type = INT;}
+        else if (token == Shr) {tokenize(); *++code = PUSH; parse_expr(Add); *++code = SHR; type = INT;}
     }
 }
 
