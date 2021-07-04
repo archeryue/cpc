@@ -683,7 +683,7 @@ void print_as() {
         "OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,"
         "OPEN,READ,CLOS,PRTF,MALC,FREE,MSET,MCMP,EXIT,";
     while (code_dump < code) {
-        printf("%8.4s", insts + (*++code_dump * 5));
+        printf("(%lld) %8.4s",++code_dump, insts + (*code_dump * 5));
         if (*code_dump < RET) printf(" %lld\n", *++code_dump);
         else printf("\n");
     }   
