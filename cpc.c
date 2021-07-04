@@ -223,7 +223,7 @@ void parse_param() {
 int type; // pass type in recursive parse expr
 
 void parse_expr(int precd) {
-    int cast_type;
+    int tmp_type;
     int* tmp_ptr;
     // const number
     if (token == Num) {
@@ -290,10 +290,10 @@ void parse_expr(int precd) {
     else if (token == '(') {
         assert('(');
         if (token == Char || token == Int) {
-            cast_type = token - Char + CHAR;
-            while (token == Mul) {assert(Mul); cast_type = cast_type + PTR;}
+            tmp_type = token - Char + CHAR;
+            while (token == Mul) {assert(Mul); tmp_type = tmp_type + PTR;}
             // use precedence Inc represent all unary operators
-            assert(')'); parse_expr(Inc); type = cast_type;
+            assert(')'); parse_expr(Inc); type = tmp_type;
         } else {
             parse_expr(Assign); assert(')');
         }
@@ -335,13 +335,26 @@ void parse_expr(int precd) {
     // ++var --var
     else if (token == Inc || token == Dec) {
         i = token; tokenize(); parse_expr(Inc);
+        // save var addr, then load var val
         if (*code == LC) {*code = PUSH; *++code = LC;}
         else if (*code == LI) {*code = PUSH; *++code = LI;}
         else {printf("line %lld: invalid Inc or Dec\n", line); exit(-1);}
-        *++code = PUSH;
+        *++code = PUSH; // save var val
         *++code = IMM; *++code = (type > PTR) ? 8 : 1;
-        *++code = (i == Inc) ? ADD : SUB;
-        *++code = (type == CHAR) ? SC : SI;
+        *++code = (i == Inc) ? ADD : SUB; // calculate
+        *++code = (type == CHAR) ? SC : SI; // write back to var addr
+    }
+    else {printf("line %lld: invalid expression\n", line); exit(-1);}
+    // use [precedence climbing] method to handle binary(or postfix) operators
+    while (token >= precd) {
+        tmp_type = type;    
+        if (token == Assign) {
+            assert(Assign);
+            if (*code == LC || *code == LI) *code = PUSH;
+            else {printf("line %lld: invalid assignment\n", line); exit(-1);}
+            parse_expr(Assign); type = tmp_type; // type can be cast
+            *++code = (type == CHAR) ? SC : SI;
+        }
     }
 }
 
