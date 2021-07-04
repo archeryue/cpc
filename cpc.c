@@ -22,8 +22,8 @@ int * pc,           // pc register
 int ax,             // common register
     cycle;
 
-// instruction set: copy from c4, change JSR/ENT/ADJ/LEV/BZ/BNZ to CALL/NSVA/DSAR/RET/JZ/JNZ.
-enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSVA, DSAR, RET, LI, LC, SI, SC, PUSH,
+// instruction set: copy from c4, change JSR/ENT/ADJ/LEV/BZ/BNZ to CALL/NVAR/DARG/RET/JZ/JNZ.
+enum {IMM, LEA, JMP, JZ, JNZ, CALL, NVAR, DARG, RET, LI, LC, SI, SC, PUSH,
     OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV, MOD,
     OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT};
 
@@ -217,7 +217,7 @@ void parse_param() {
         symbol_ptr[Value] = i++;
         if (token == ',') assert(',');
     }
-    ibp = i + 1;
+    ibp = i;
 }
 
 int type; // pass type in recursive parse expr
@@ -268,7 +268,7 @@ void parse_expr(int precd) {
             else if (tmp_ptr[Class] == Fun) {*++code = CALL; *++code = tmp_ptr[Value];}
             else {printf("line %lld: invalid function call\n", line); exit(-1);}
             // delete stack frame for args
-            if (i > 0) {*++code = DSAR; *++code = i;}
+            if (i > 0) {*++code = DARG; *++code = i;}
             type = tmp_ptr[Type];
         }
         // handle enum value
@@ -278,7 +278,7 @@ void parse_expr(int precd) {
         // handle variables
         else {
             // local var, calculate addr base ibp
-            if (tmp_ptr[Class] == Loc) {*++code = LEA; *++code = ibp - tmp_ptr[Value];}
+            if (tmp_ptr[Class] == Loc) {*++code = LEA; *++code = ibp - tmp_ptr[Value] - 1;}
             // global var
             else if (tmp_ptr[Class] == Glo) {*++code = IMM; *++code = tmp_ptr[Value];}
             else {printf("line %lld: invalid variable\n", line); exit(-1);}
@@ -471,7 +471,7 @@ void parse_stmt() {
 
 void parse_fun() {
     int type;
-    i = ibp + 1; // keep space for bp
+    i = ibp; // bp handle by NVAR itself.
     // local variables must be declare in advance 
     while (token == Char || token == Int) {
         type = parse_base_type();
@@ -488,7 +488,7 @@ void parse_fun() {
         assert(';');
     }
     // new stack frame for vars
-    *++code = NSVA;
+    *++code = NVAR;
     // stack frame size
     *++code = i - ibp;
     while (token != '}') parse_stmt();
@@ -586,6 +586,22 @@ int init_vm() {
     return 0;
 }
 
+char* insts;
+void print_as() {
+    insts = "IMM ,LEA ,JMP ,JZ  ,JNZ ,CALL,NVAR,DARG,RET ,LI  ,LC  ,SI  ,SC  ,PUSH,"
+        "OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,"
+        "OPEN,READ,CLOS,PRTF,MALC,FREE,MSET,MCMP,EXIT,";
+    while (code_dump < code) {
+        printf("(%lld) %8.4s", ++code_dump, insts + (*code_dump * 5));
+        if (*code_dump < RET) printf(" %lld\n", *++code_dump);
+        else printf("\n");
+    }
+}
+
+void print_op(int op) {
+    printf("(%lld) %8.4s\n", (int)(pc - 1), insts + (op * 5));
+}
+
 int run_vm(int argc, char** argv) {
     int op;
     int* tmp;
@@ -599,12 +615,12 @@ int run_vm(int argc, char** argv) {
     cycle = 0;
     while (1) {
         cycle++; op = *pc++; // read instruction
-        if (cycle == 65) {
-            printf("execute: %lld, %lld\n", cycle, op);
-        }
+        // printf("ax:%lld, sp:%lld, bp:%lld\n", ax, (int)((int*)((int)stack + MAX_SIZE) - sp), 
+            // (int)((int*)((int)stack + MAX_SIZE) - bp));
+        // print_op(op);
         // load & save
         if (op == IMM)          ax = *pc++;                     // load immediate(or global addr)
-        else if (op == LEA)     ax = (int)bp + *pc++;           // load local addr
+        else if (op == LEA)     ax = (int)(bp + *pc++);         // load local addr
         else if (op == LC)      ax = *(char*)ax;                // load char
         else if (op == LI)      ax = *(int*)ax;                 // load int
         else if (op == SC)      *(char*)*sp++ = ax;             // save char to stack
@@ -635,9 +651,9 @@ int run_vm(int argc, char** argv) {
         // call function: push pc + 1 to stack & pc jump to func addr(pc point to)
         else if (op == CALL)    {*--sp = (int)(pc+1); pc = (int*)*pc;}
         // new stack frame for vars: save bp, bp -> caller stack, stack add frame
-        else if (op == NSVA)    {*--sp = (int)bp; bp = sp; sp = sp - *pc++;}
+        else if (op == NVAR)    {*--sp = (int)bp; bp = sp; sp = sp - *pc++;}
         // delete stack frame for args: same as x86 : add esp, <size>
-        else if (op == DSAR)    sp = sp + *pc++;
+        else if (op == DARG)    sp = sp + *pc++;
         // return caller: retore stack, retore old bp, pc point to caller code addr(store by CALL) 
         else if (op == RET)     {sp = bp; bp = (int*)*sp++; pc = (int*)*sp++;}        
         // end for call function.
@@ -676,18 +692,6 @@ int load_src(char* file) {
     src[cnt] = 0; // EOF
     close(fd);
     return 0;
-}
-
-void print_as() {
-    char* insts = "IMM ,LEA ,JMP ,JZ  ,JNZ ,CALL,NSVA,DSAR,RET ,LI  ,LC  ,SI  ,SC  ,PUSH,"
-        "OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,"
-        "OPEN,READ,CLOS,PRTF,MALC,FREE,MSET,MCMP,EXIT,";
-    i = 0;
-    while (code_dump < code) {
-        printf("%lld\t: (%lld) %8.4s",++i, ++code_dump, insts + (*code_dump * 5));
-        if (*code_dump < RET) printf(" %lld\n", *++code_dump);
-        else printf("\n");
-    }
 }
 
 // after bootstrap use [int] istead of [int32_t]
