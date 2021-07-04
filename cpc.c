@@ -502,7 +502,8 @@ void parse_fun() {
 }
 
 void parse() {
-    int type;
+    int type, base_type;
+    line = 0;
     token = 1; // just for loop condition
     while (token > 0) {
         tokenize(); // start or skip last ; | }
@@ -511,11 +512,12 @@ void parse() {
             assert(Enum);
             if (token != '{') assert(Id); // skip enum name
             assert('{'); parse_enum(); assert('}');
-        } else {
-            type = parse_base_type();
+        } else if (token == Int || token == Char) {
+            base_type = parse_base_type();
             // parse var or func definition
             while (token != ';' && token != '}') {
                 // parse pointer's star
+                type = base_type;
                 while (token == Mul) {assert(Mul); type = type + PTR;}
                 check_new_id();
                 assert(Id);
@@ -524,7 +526,7 @@ void parse() {
                     // function
                     symbol_ptr[Class] = Fun;
                     symbol_ptr[Value] = (int)(code + 1);
-                    assert('('); parse_param(); assert(')');
+                    assert('('); parse_param(); assert(')'); assert('{');
                     parse_fun();
                 } else {
                     // variable
@@ -540,8 +542,7 @@ void parse() {
 }
 
 void keyword() {
-    char* keyword;
-    keyword = "char int int enum if else return sizeof while "
+    src = "char int enum if else return sizeof while "
         "open read close printf malloc free memset memcmp exit void main";
     // add keywords to symbol table
     i = Char; while (i <= While) {tokenize(); symbol_ptr[Token] = i++;}
@@ -554,6 +555,7 @@ void keyword() {
     }
     tokenize(); symbol_ptr[Token] = Char; // handle void type
     tokenize(); main_ptr = symbol_ptr; // keep track of main
+    src = src_dump;
 }
 
 int init_vm() {
@@ -667,7 +669,6 @@ int load_src(char* file) {
         printf("could not malloc(%lld) for source code\n", MAX_SIZE);
         return -1;
     }
-    line = 0;
     if ((cnt = read(fd, src, MAX_SIZE - 1)) <= 0) {
         printf("could not read source code(%lld)\n", cnt);
         return -1;
