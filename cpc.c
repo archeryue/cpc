@@ -492,7 +492,6 @@ void parse_fun() {
     // stack frame size
     *++code = i - ibp;
     while (token != '}') parse_stmt();
-    *++code = RET;
     // recover global variables
     symbol_ptr = symbol_table;
     while (symbol_ptr[Token]) {
@@ -503,6 +502,7 @@ void parse_fun() {
 
 void parse() {
     int type, base_type;
+    int* p;
     line = 0;
     token = 1; // just for loop condition
     while (token > 0) {
@@ -589,19 +589,19 @@ int init_vm() {
 int run_vm(int argc, char** argv) {
     int op;
     int* tmp;
-
-    if (!(pc = (int*)main_ptr[Value])) {printf("main function is not defined\n"); exit(-1);}
-
-    // init stack
-    bp = sp = (int*)((int)sp + MAX_SIZE);
+    // exit code for main
+    bp = sp = (int*)((int)stack + MAX_SIZE);
     *--sp = EXIT;
     *--sp = PUSH; tmp = sp;
     *--sp = argc; *--sp = (int)argv;
     *--sp = (int)tmp;
-
+    if (!(pc = (int*)main_ptr[Value])) {printf("main function is not defined\n"); exit(-1);}
     cycle = 0;
     while (1) {
-        op = *pc++; // read instruction
+        cycle++; op = *pc++; // read instruction
+        if (cycle == 65) {
+            printf("execute: %lld, %lld\n", cycle, op);
+        }
         // load & save
         if (op == IMM)          ax = *pc++;                     // load immediate(or global addr)
         else if (op == LEA)     ax = (int)bp + *pc++;           // load local addr
@@ -682,11 +682,12 @@ void print_as() {
     char* insts = "IMM ,LEA ,JMP ,JZ  ,JNZ ,CALL,NSVA,DSAR,RET ,LI  ,LC  ,SI  ,SC  ,PUSH,"
         "OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,"
         "OPEN,READ,CLOS,PRTF,MALC,FREE,MSET,MCMP,EXIT,";
+    i = 0;
     while (code_dump < code) {
-        printf("(%lld) %8.4s",++code_dump, insts + (*code_dump * 5));
+        printf("%lld\t: (%lld) %8.4s",++i, ++code_dump, insts + (*code_dump * 5));
         if (*code_dump < RET) printf(" %lld\n", *++code_dump);
         else printf("\n");
-    }   
+    }
 }
 
 // after bootstrap use [int] istead of [int32_t]
