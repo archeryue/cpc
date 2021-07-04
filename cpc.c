@@ -383,6 +383,30 @@ void parse_expr(int precd) {
         else if (token == Ge)  {tokenize(); *++code = PUSH; parse_expr(Shl); *++code = GE;  type = INT;}
         else if (token == Shl) {tokenize(); *++code = PUSH; parse_expr(Add); *++code = SHL; type = INT;}
         else if (token == Shr) {tokenize(); *++code = PUSH; parse_expr(Add); *++code = SHR; type = INT;}
+        // arithmetic operators
+        else if (token == Add) {
+            tokenize(); *++code = PUSH; parse_expr(Mul);
+            // int pointer * 8
+            if (tmp_type > PTR) {*++code = PUSH; *++code = IMM; *++code = 8; *++code = MUL;}
+            *++code = ADD; type = tmp_type;
+        }
+        else if (token == Sub) {
+            tokenize(); *++code = PUSH; parse_expr(Mul);
+            if (tmp_type > PTR && tmp_type == type) {
+                // pointer - pointer, ret / 8
+                *++code = SUB; *++code = PUSH;
+                *++code = IMM; *++code = 8;
+                *++code = DIV; type = INT;}
+            else if (tmp_type > PTR) {
+                *++code = PUSH;
+                *++code = IMM; *++code = 8;
+                *++code = MUL;
+                *++code = SUB; type = tmp_type;}
+            else *++code = SUB;
+        }
+        else if (token == Mul) {tokenize(); *++code = PUSH; parse_expr(Inc); *++code = MUL; type = INT;}
+        else if (token == Div) {tokenize(); *++code = PUSH; parse_expr(Inc); *++code = DIV; type = INT;}
+        else if (token == Mod) {tokenize(); *++code = PUSH; parse_expr(Inc); *++code = MOD; type = INT;}
     }
 }
 
