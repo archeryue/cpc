@@ -221,7 +221,7 @@ void parse_param() {
 
 int type; // pass type in recursive parse expr
 void parse_expr(int precd) {
-    int tmp_type;
+    int tmp_type, cnt;
     int* tmp_ptr;
     // const number
     if (token == Num) {
@@ -254,10 +254,10 @@ void parse_expr(int precd) {
         // function call
         if (token == '(') {
             assert('(');
-            i = 0; // number of args
+            cnt = 0; // number of args
             while (token != ')') {
                 parse_expr(Assign);
-                *++code = PUSH; i++;
+                *++code = PUSH; cnt++;
                 if (token == ',') assert(',');
             } assert(')');
             // native call
@@ -266,7 +266,7 @@ void parse_expr(int precd) {
             else if (tmp_ptr[Class] == Fun) {*++code = CALL; *++code = tmp_ptr[Value];}
             else {printf("line %lld: invalid function call\n", line); exit(-1);}
             // delete stack frame for args
-            if (i > 0) {*++code = DARG; *++code = i;}
+            if (cnt > 0) {*++code = DARG; *++code = cnt;}
             type = tmp_ptr[Type];
         }
         // handle enum value
@@ -652,7 +652,7 @@ int run_vm(int argc, char** argv) {
         else if (op == OPEN)    {ax = open((char*)sp[1], sp[0]);}
         else if (op == CLOS)    {ax = close(*sp);}
         else if (op == READ)    {ax = read(sp[2], (char*)sp[1], *sp);}
-        else if (op == PRTF)    {tmp = sp + pc[1]; ax = printf((char*)tmp[0], tmp[-1], tmp[-2], tmp[-3], tmp[-4], tmp[-5]);}
+        else if (op == PRTF)    {tmp = sp + pc[1]; ax = printf((char*)tmp[-1], tmp[-2], tmp[-3], tmp[-4], tmp[-5], tmp[-6]);}
         else if (op == MALC)    {ax = (int)malloc(*sp);}
         else if (op == FREE)    {free((void*)*sp);}
         else if (op == MSET)    {ax = (int)memset((char*)sp[2], sp[1], *sp);}
