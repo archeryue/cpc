@@ -416,7 +416,17 @@ void parse_expr(int precd) {
             *++code = PUSH; // restore ax for current expr calculate
             *++code = IMM; *++code = (type > PTR) ? sizeof(int) : sizeof(char);
             *++code = (token == Inc) ? SUB : ADD;
+            tokenize();
         }
+        // a[x] = *(a + x)
+        else if (token == Brak) {
+            assert(Brak); *++code = PUSH; parse_expr(Assign); assert(']');
+            if (tmp_type > PTR) {*++code = PUSH; *++code = IMM; *++code = 8; *++code = MUL;}
+            else if (tmp_type < PTR) {printf("line %lld: invalid index op\n", line); exit(-1);}
+            *++code = ADD; type = tmp_type - PTR;
+            *++code = (type == CHAR) ? LC : LI;
+        }
+        else {printf("%lld: invlid token=%lld\n", line, token); exit(-1);}
     }
 }
 
