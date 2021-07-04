@@ -217,7 +217,7 @@ void parse_param() {
         symbol_ptr[Value] = i++;
         if (token == ',') assert(',');
     }
-    ibp = i;
+    ibp = ++i;
 }
 
 int type; // pass type in recursive parse expr
@@ -278,7 +278,7 @@ void parse_expr(int precd) {
         // handle variables
         else {
             // local var, calculate addr base ibp
-            if (tmp_ptr[Class] == Loc) {*++code = LEA; *++code = ibp - tmp_ptr[Value] - 1;}
+            if (tmp_ptr[Class] == Loc) {*++code = LEA; *++code = ibp - tmp_ptr[Value];}
             // global var
             else if (tmp_ptr[Class] == Glo) {*++code = IMM; *++code = tmp_ptr[Value];}
             else {printf("line %lld: invalid variable\n", line); exit(-1);}
@@ -482,7 +482,7 @@ void parse_fun() {
             hide_global();
             symbol_ptr[Class] = Loc;
             symbol_ptr[Type] = type;
-            symbol_ptr[Value] = i++;
+            symbol_ptr[Value] = ++i;
             if (token == ',') assert(',');
         }
         assert(';');
@@ -598,10 +598,6 @@ void print_as() {
     }
 }
 
-void print_op(int op) {
-    printf("(%lld) %8.4s\n", (int)(pc - 1), insts + (op * 5));
-}
-
 int run_vm(int argc, char** argv) {
     int op;
     int* tmp;
@@ -615,9 +611,6 @@ int run_vm(int argc, char** argv) {
     cycle = 0;
     while (1) {
         cycle++; op = *pc++; // read instruction
-        // printf("ax:%lld, sp:%lld, bp:%lld\n", ax, (int)((int*)((int)stack + MAX_SIZE) - sp), 
-            // (int)((int*)((int)stack + MAX_SIZE) - bp));
-        // print_op(op);
         // load & save
         if (op == IMM)          ax = *pc++;                     // load immediate(or global addr)
         else if (op == LEA)     ax = (int)(bp + *pc++);         // load local addr
