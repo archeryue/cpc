@@ -24,8 +24,8 @@ int ax,             // common register
 
 // instruction set: copy from c4, change JSR/ENT/ADJ/LEV/BZ/BNZ to CALL/NSVA/DSAR/RET/JZ/JNZ.
 enum {IMM, LEA, JMP, JZ, JNZ, CALL, NSVA, DSAR, RET, LI, LC, SI, SC, PUSH,
-    OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV,
-    MOD, OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT};
+    OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV, MOD,
+    OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT};
 
 // classes/keywords, Do not support for.
 enum {Num = 128, Fun, Sys, Glo, Loc, Id,
@@ -584,9 +584,20 @@ int init_vm() {
     return 0;
 }
 
-int run_vm() {
+int run_vm(int argc, char** argv) {
     int op;
     int* tmp;
+
+    if (!(pc = (int*)main_ptr[Value])) {printf("main function is not defined\n"); exit(-1);}
+
+    // init stack
+    bp = sp = (int*)((int)sp + MAX_SIZE);
+    *--sp = EXIT;
+    *--sp = PUSH; tmp = sp;
+    *--sp = argc; *--sp = (int)argv;
+    *--sp = (int)tmp;
+
+    cycle = 0;
     while (1) {
         op = *pc++; // read instruction
         // load & save
@@ -639,10 +650,7 @@ int run_vm() {
         else if (op == MSET)    {ax = (int)memset((char*)sp[2], sp[1], *sp);}
         else if (op == MCMP)    {ax = memcmp((char*)sp[2], (char*)sp[1], *sp);}
         else if (op == EXIT)    {printf("exit(%lld)\n", *sp); return *sp;}
-        else {
-            printf("unkown instruction: %lld\n", op);
-            return -1;
-        }
+        else {printf("unkown instruction: %lld, cycle: %lld\n", op, cycle); return -1;}
     }
     return 0;
 }
@@ -669,6 +677,17 @@ int load_src(char* file) {
     return 0;
 }
 
+void print_as() {
+    char* insts = "IMM ,LEA ,JMP ,JZ  ,JNZ ,CALL,NSVA,DSAR,RET ,LI  ,LC  ,SI  ,SC  ,PUSH,"
+        "OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,"
+        "OPEN,READ,CLOS,PRTF,MALC,FREE,MSET,MCMP,EXIT,";
+    while (code_dump < code) {
+        printf("%8.4s", insts + (*++code_dump * 5));
+        if (*code_dump < RET) printf(" %lld\n", *++code_dump);
+        else printf("\n");
+    }   
+}
+
 // after bootstrap use [int] istead of [int32_t]
 int32_t main(int32_t argc, char** argv) {
     // load source code
@@ -679,6 +698,8 @@ int32_t main(int32_t argc, char** argv) {
     keyword();
     // parse and generate vm instructions, save to vm
     parse();
+    // print assembles: vm instructions
+    print_as();
     // run vm and execute instructions
-    return run_vm();
+    return run_vm(--argc, ++argv);
 }
