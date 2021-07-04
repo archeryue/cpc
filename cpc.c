@@ -220,7 +220,6 @@ void parse_param() {
 }
 
 int type; // pass type in recursive parse expr
-
 void parse_expr(int precd) {
     int tmp_type;
     int* tmp_ptr;
@@ -653,8 +652,7 @@ int run_vm(int argc, char** argv) {
         else if (op == OPEN)    {ax = open((char*)sp[1], sp[0]);}
         else if (op == CLOS)    {ax = close(*sp);}
         else if (op == READ)    {ax = read(sp[2], (char*)sp[1], *sp);}
-        else if (op == PRTF)    {tmp = sp + pc[1]; ax = printf((char*)tmp[0], tmp[-1], tmp[-2],
-                                                                    tmp[-3], tmp[-4], tmp[-4]);}
+        else if (op == PRTF)    {tmp = sp + pc[1]; ax = printf((char*)tmp[0], tmp[-1], tmp[-2], tmp[-3], tmp[-4], tmp[-5]);}
         else if (op == MALC)    {ax = (int)malloc(*sp);}
         else if (op == FREE)    {free((void*)*sp);}
         else if (op == MSET)    {ax = (int)memset((char*)sp[2], sp[1], *sp);}
