@@ -24,8 +24,8 @@
  - stack // 栈空间，从大到小（由于这三块内存我们是分别存储的，所以stack并非一定要从大到小，只是习惯而已）
 
 ##### 寄存器
- - pc // 代码地址，也就是 code 区域的指针，每步都是执行 pc 所指向的指令
- - sp // 栈指针
+ - pc // 代码计数器，也就是 code 区域的指针，每步都是执行 pc 所指向的指令
+ - sp // stack pointer, 栈指针
  - bp // base pointer，上一个栈的指针
  - ax // 通用寄存器，保存指令要用的数据，返回值也会保存在这里
 
@@ -44,43 +44,43 @@ Parse 过程需要保存一些关键的临时数据，比如说我 Parse 过一�
 我需要准确的知道 x 的类型、内存地址，这样我才能正确的处理 x 相关的语句和表达式  
 这个保存 Parse 过程临时数据的地方就是：符号表（symbol_table）
 - 符号表 & 关键字
- - Token: 符号类型标识，默认是 Id，但是关键字和运算符都有自己的Id
- - Hash: just hash，用于快速判断两个 Id 是否相同
- - Name: just name, 符号的全名
- - Class: 符号的类别：Num(枚举符号), Fun(函数), Sys(Native Call), Glo(全局变量), Loc(局部变量)
- - Type: 符号所代表的变量或者函数的返回类型
- - Value: 符号的值，不同类别的符号值的含义不同，例如：全局变量的值为地址，Loc的值为顺序（地址在stack中，可根据顺序计算）
- - GClass, GType, GValue: 用于进入局部空间后，对同名全局符号的遮蔽时临时保存全局属性
+  - Token: 符号类型标识，默认是 Id，但是关键字和运算符都有自己的Id
+  - Hash: just hash，用于快速判断两个 Id 是否相同
+  - Name: just name, 符号的全名
+  - Class: 符号的类别：Num(枚举符号), Fun(函数), Sys(Native Call), Glo(全局变量), Loc(局部变量)
+  - Type: 符号所代表的变量或者函数的返回类型
+  - Value: 符号的值，不同类别的符号值的含义不同，例如：全局变量的值为地址，Loc的值为顺序（地址在stack中，可根据顺序计算）
+  - GClass, GType, GValue: 用于进入局部空间后，对同名全局符号的遮蔽时临时保存全局属性
 - Parse 全局定义  
 全局定义一共有两种：变量、函数，由于枚举变量以 enum 开头有些特殊，我们也把它单拎出来处理
- - parse 枚举：这个很容易 enum [Id] {Id [= Num], Id ....};
- - parse 变量：这个更容易 type[\*] Id [,Id] ... ;
- - parse 函数：这个麻烦些 type[\*] Id (type Id [, type Id] ... ) { 这里面是函数内部，单独讲 } 
+  - parse 枚举：这个很容易 enum [Id] {Id [= Num], Id ....};
+  - parse 变量：这个更容易 type[\*] Id [,Id] ... ;
+  - parse 函数：这个麻烦些 type[\*] Id (type Id [, type Id] ... ) { 这里面是函数内部，单独讲 } 
 - Parse 函数
- - 处理传入参数
- - 处理局部变量（遮蔽同名全局变量）
- - 一条一条处理 parse 语句
- - 恢复同名全局变量
+  - 处理传入参数
+  - 处理局部变量（遮蔽同名全局变量）
+  - 一条一条处理 parse 语句
+  - 恢复同名全局变量
 - Parse 语句
- - If 语句
- > JZ false point  
- > true point: true stmts ...  
- > JMP end point  
- > false point: false stmts ...  
- > end point  
- - While 语句
- > loop point  
- > while stmt  
- > JZ end point  
- > stmts...  
- > JMP loop point  
- - Return 语句
- - 普通语句：直接当做表达式处理
+  - If 语句
+  > JZ false point  
+  > true point: true stmts ...  
+  > JMP end point  
+  > false point: false stmts ...  
+  > end point  
+  - While 语句
+  > loop point  
+  > while stmt  
+  > JZ end point  
+  > stmts...  
+  > JMP loop point  
+  - Return 语句
+  - 普通语句：直接当做表达式处理
 - Parse 表达式  
 表达式 Parse 我在经典的「递归下降」和 C4 使用的「优先级爬山」中犹豫了很久，最终使用简单的爬山法
 优先级爬山处理的方式也很优雅：
- - 遇到第一个 operator 直接压栈
- - 后续的 operator 与栈顶比较
-   - 优先级更高的话直接处理
-   - 优先级低的话则先处理栈中的 operator
- - 直到所有 operator 都处理完
+  - 遇到第一个 operator 直接压栈
+  - 后续的 operator 与栈顶比较
+    - 优先级更高的话直接处理
+    - 优先级低的话则先处理栈中的 operator
+  - 直到所有 operator 都处理完
