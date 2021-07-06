@@ -31,7 +31,7 @@
 
 ##### 指令集
 指令集一共有 4 大类
- - save & load：在寄存器和内存中间传递数据
+ - Save&Load：在寄存器和内存中间传递数据
    - IMM, LEA, PUSH, LC, LI, SC, SI
  - 四则运算、逻辑运算、位运算
    - OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV, MOD
