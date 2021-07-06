@@ -32,10 +32,14 @@
 ##### 指令集
 指令集一共有 4 大类
  - save & load：在寄存器和内存中间传递数据
- - 四则运算
- - 函数调用: CALL/NVAR/RET/DARG
-   - //TODO: 有空再细讲一下
+   - IMM, LEA, PUSH, LC, LI, SC, SI
+ - 四则运算、逻辑运算、位运算
+   - OR, XOR, AND, EQ, NE, LT, GT, LE, GE, SHL, SHR, ADD, SUB, MUL, DIV, MOD
+ - 跳转、函数调用
+   - JMP/JZ/JNZ, CALL/NVAR/RET/DARG
+   - //TODO: 有空再细讲一下函数调用
  - Native CALL：虚拟机通过调用原生函数支持的一些指令（以方便处理动态内存、IO等问题，简化实现）
+   - OPEN, READ, CLOS, PRTF, MALC, FREE, MSET, MCMP, EXIT
 
 #### Parse 设计
 Parse 最关键的就是要将 C 代码翻译成 VM 指令写入 code 空间（同时把全局变量和常量写入 data 空间） 
