@@ -3,3 +3,4 @@
 *.o
 build/
 .vscode/
+cpc
