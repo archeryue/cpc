@@ -8,7 +8,7 @@
 
 #define int int64_t
 
-int MAX_SIZE;
+int MAX_SIZE;       // 1MB = 128 * 1024 * 8
 
 int * code,         // code segment
     * code_dump,    // for dump
@@ -51,7 +51,6 @@ int * symbol_table,
 
 int token, token_val;
 int line;
-int i; // reuse index var
 
 void tokenize() {
     char* ch_ptr;
@@ -170,6 +169,7 @@ void check_new_id() {
 }
 
 void parse_enum() {
+    int i;
     i = 0; // enum index
     while (token != '}') {
         check_new_id();
@@ -203,7 +203,7 @@ void recover_global() {
 
 int ibp;
 void parse_param() {
-    int type;
+    int type, i;
     i = 0;
     while (token != ')') {
         type = parse_base_type(); 
@@ -221,7 +221,7 @@ void parse_param() {
 
 int type; // pass type in recursive parse expr
 void parse_expr(int precd) {
-    int tmp_type, cnt;
+    int tmp_type, i;
     int* tmp_ptr;
     // const number
     if (token == Num) {
@@ -254,10 +254,10 @@ void parse_expr(int precd) {
         // function call
         if (token == '(') {
             assert('(');
-            cnt = 0; // number of args
+            i = 0; // number of args
             while (token != ')') {
                 parse_expr(Assign);
-                *++code = PUSH; cnt++;
+                *++code = PUSH; i++;
                 if (token == ',') assert(',');
             } assert(')');
             // native call
@@ -266,7 +266,7 @@ void parse_expr(int precd) {
             else if (tmp_ptr[Class] == Fun) {*++code = CALL; *++code = tmp_ptr[Value];}
             else {printf("line %lld: invalid function call\n", line); exit(-1);}
             // delete stack frame for args
-            if (cnt > 0) {*++code = DARG; *++code = cnt;}
+            if (i > 0) {*++code = DARG; *++code = i;}
             type = tmp_ptr[Type];
         }
         // handle enum value
@@ -408,13 +408,14 @@ void parse_expr(int precd) {
         else if (token == Mod) {tokenize(); *++code = PUSH; parse_expr(Inc); *++code = MOD; type = INT;}
         // var++, var--
         else if (token == Inc || token == Dec) {
-            *++code = PUSH; // just modify value in mem, not register
-            *++code = IMM; *++code = (type > PTR) ? 8 : 1;
+            if (*code == LC) {*code = PUSH; *++code = LC;} // save var addr
+            else if (*code == LI) {*code = PUSH; *++code = LI;}
+            else {printf("%lld: invlid operator=%lld\n", line, token); exit(-1);}
+            *++code = PUSH; *++code = IMM; *++code = (type > PTR) ? 8 : 1;
             *++code = (token == Inc) ? ADD : SUB;
-            *++code = (type == CHAR) ? SC : SI;
-            *++code = PUSH; // restore ax for current expr calculate
-            *++code = IMM; *++code = (type > PTR) ? sizeof(int) : sizeof(char);
-            *++code = (token == Inc) ? SUB : ADD;
+            *++code = (type == CHAR) ? SC : SI; // save value ++ or -- to addr
+            *++code = PUSH; *++code = IMM; *++code = (type > PTR) ? 8 : 1;
+            *++code = (token == Inc) ? SUB : ADD; // restore value before ++ or --
             tokenize();
         }
         // a[x] = *(a + x)
@@ -469,7 +470,7 @@ void parse_stmt() {
 }
 
 void parse_fun() {
-    int type;
+    int type, i;
     i = ibp; // bp handle by NVAR itself.
     // local variables must be declare in advance 
     while (token == Char || token == Int) {
@@ -491,6 +492,7 @@ void parse_fun() {
     // stack frame size
     *++code = i - ibp;
     while (token != '}') parse_stmt();
+    if (*code != RET) *++code = RET; // void function
     // recover global variables
     symbol_ptr = symbol_table;
     while (symbol_ptr[Token]) {
@@ -540,6 +542,7 @@ void parse() {
 }
 
 void keyword() {
+    int i;
     src = "char int enum if else return sizeof while "
         "open read close printf malloc free memset memcmp exit void main";
     // add keywords to symbol table
@@ -578,22 +581,7 @@ int init_vm() {
     memset(data, 0, MAX_SIZE);
     memset(stack, 0, MAX_SIZE);
     memset(symbol_table, 0, MAX_SIZE / 16);
-    // init register
-    bp = sp = stack + MAX_SIZE; // stack downwards
-    ax = 0;
     return 0;
-}
-
-char* insts;
-void print_as() {
-    insts = "IMM ,LEA ,JMP ,JZ  ,JNZ ,CALL,NVAR,DARG,RET ,LI  ,LC  ,SI  ,SC  ,PUSH,"
-        "OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,"
-        "OPEN,READ,CLOS,PRTF,MALC,FREE,MSET,MCMP,EXIT,";
-    while (code_dump < code) {
-        printf("(%lld) %8.4s", ++code_dump, insts + (*code_dump * 5));
-        if (*code_dump < RET) printf(" %lld\n", *++code_dump);
-        else printf("\n");
-    }
 }
 
 int run_vm(int argc, char** argv) {
@@ -664,8 +652,7 @@ int run_vm(int argc, char** argv) {
 }
 
 int load_src(char* file) {
-    int fd;
-    int cnt;
+    int fd, cnt;
     // use open/read/close for bootstrap.
     if ((fd = open(file, 0)) < 0) {
         printf("could not open source code(%s)\n", file);
@@ -684,7 +671,6 @@ int load_src(char* file) {
     return 0;
 }
 
-// after bootstrap use [int] istead of [int32_t]
 int main(int argc, char** argv) {
     MAX_SIZE = 128 * 1024 * 8; // 1MB = 128k * 64bit
     // load source code
@@ -695,8 +681,6 @@ int main(int argc, char** argv) {
     keyword();
     // parse and generate vm instructions, save to vm
     parse();
-    // print assembles: vm instructions
-    print_as();
     // run vm and execute instructions
     return run_vm(--argc, ++argv);
 }
