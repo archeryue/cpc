@@ -14,7 +14,9 @@
 ## 原理解析
 最核心的代码其实是两个函数：
 - run_vm : 执行指令，依赖 init_vm
-- parse  : 将 C 代码解析为指令，核心依赖 parse_fun/parse_stmt/parse_expr
+- parse  : 将 C 代码解析为指令，核心依赖 parse_fun/parse_stmt/parse_expr  
+
+整个实现原理已制作成[B站视频](https://www.bilibili.com/video/BV1Kf4y1V783/)
 
 #### VM 设计
 ##### 内存
